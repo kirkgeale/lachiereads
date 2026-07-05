@@ -79,16 +79,6 @@ function ParentLayout() {
             >
               <Type className="w-3.5 h-3.5 inline mr-1" /> Dyslexia font
             </button>
-            <button
-              onClick={async () => {
-                sessionStorage.removeItem(UNLOCK_KEY);
-                await supabase.auth.signOut();
-                navigate({ to: "/auth" });
-              }}
-              className="rounded-full px-3 py-1.5 text-xs border border-input text-muted-foreground hover:bg-secondary"
-            >
-              <LogOut className="w-3.5 h-3.5 inline mr-1" /> Sign out
-            </button>
           </div>
         </div>
       </header>
