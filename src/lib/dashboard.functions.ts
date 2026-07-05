@@ -78,6 +78,8 @@ export const getProgressTimeline = createServerFn({ method: "GET" })
           ...s,
           total_events: evs.length,
           got_it: evs.filter((e) => e.outcome === "got_it").length,
+          self_corrected: evs.filter((e) => e.outcome === "self_corrected").length,
+          prompted: evs.filter((e) => e.outcome === "prompted").length,
           hesitated: evs.filter((e) => e.outcome === "hesitated").length,
           missed: evs.filter((e) => e.outcome === "missed").length,
         };

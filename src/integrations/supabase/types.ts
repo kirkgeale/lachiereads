@@ -567,7 +567,7 @@ export type Database = {
       gpc_type: "single" | "digraph" | "split_digraph" | "vowel_team"
       interference_status: "still_confuses" | "resolving" | "secure"
       item_status: "not_started" | "learning" | "practising" | "secure"
-      outcome: "got_it" | "hesitated" | "missed"
+      outcome: "got_it" | "hesitated" | "missed" | "self_corrected" | "prompted"
       session_item_type: "gpc" | "heart_word" | "decodable_word"
     }
     CompositeTypes: {
@@ -707,7 +707,7 @@ export const Constants = {
       gpc_type: ["single", "digraph", "split_digraph", "vowel_team"],
       interference_status: ["still_confuses", "resolving", "secure"],
       item_status: ["not_started", "learning", "practising", "secure"],
-      outcome: ["got_it", "hesitated", "missed"],
+      outcome: ["got_it", "hesitated", "missed", "self_corrected", "prompted"],
       session_item_type: ["gpc", "heart_word", "decodable_word"],
     },
   },
