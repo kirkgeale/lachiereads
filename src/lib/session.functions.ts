@@ -122,7 +122,8 @@ export const startSession = createServerFn({ method: "POST" })
       });
     }
 
-    // 3) Practice: AI content restricted to reached graphemes + known heart words
+    // 3) Practice: AI content restricted to reached graphemes + known heart words,
+    //    personalised with age, target GPC, recent misses, and interference.
     const { data: reachedGpcs } = await supabase
       .from("learner_gpc_status")
       .select("gpc_id, gpcs(id, grapheme)")
@@ -139,6 +140,31 @@ export const startSession = createServerFn({ method: "POST" })
       .neq("status", "not_started");
     const knownHeartWords = (knownHwRows ?? []).map((r: any) => r.heart_words.word as string);
 
+    const { data: learnerRow } = await supabase
+      .from("learners")
+      .select("birthdate")
+      .eq("id", data.learner_id)
+      .maybeSingle();
+    const ageYears = learnerRow?.birthdate
+      ? Math.floor((Date.now() - new Date(learnerRow.birthdate).getTime()) / (365.25 * 86400000))
+      : null;
+
+    const { data: interferenceRows } = await supabase
+      .from("interference_items")
+      .select("grapheme, swedish_value, english_value");
+
+    // Recent misses (last ~30 events)
+    const { data: recentEvents } = await supabase
+      .from("session_events")
+      .select("item_ref, outcome, sessions!inner(learner_id, created_at)")
+      .eq("sessions.learner_id", data.learner_id)
+      .in("outcome", ["missed", "hesitated"])
+      .order("created_at", { ascending: false, referencedTable: "sessions" as any })
+      .limit(30);
+    const recentMisses = Array.from(
+      new Set((recentEvents ?? []).map((r: any) => r.item_ref).filter(Boolean)),
+    ).slice(0, 8);
+
     const practiceCards: SessionCard[] = [];
     if (allowedGraphemes.length > 0) {
       try {
@@ -149,6 +175,11 @@ export const startSession = createServerFn({ method: "POST" })
           allowedGraphemes,
           allowedGpcIds,
           knownHeartWords,
+          ageYears,
+          targetGrapheme: targetGpc?.grapheme ?? null,
+          targetSoundLabel: targetGpc?.sound_label ?? null,
+          recentMisses,
+          interferencePairs: interferenceRows ?? [],
         });
         const words: string[] = wordListRes.words ?? [];
         for (const w of words.slice(0, 6)) {
@@ -168,6 +199,11 @@ export const startSession = createServerFn({ method: "POST" })
           allowedGraphemes,
           allowedGpcIds,
           knownHeartWords,
+          ageYears,
+          targetGrapheme: targetGpc?.grapheme ?? null,
+          targetSoundLabel: targetGpc?.sound_label ?? null,
+          recentMisses,
+          interferencePairs: interferenceRows ?? [],
         });
         const sentence: string = sentenceRes.sentence ?? "";
         if (sentence) {
