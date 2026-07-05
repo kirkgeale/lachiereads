@@ -23,8 +23,13 @@ interface GenArgs {
   targetSoundLabel?: string | null;
   recentMisses?: string[];
   interferencePairs?: InterferencePair[];
-  strengths?: string[];  // items the learner reliably gets right — safe to stretch
-  challenges?: string[]; // items shaky or freshly missed — needs gentle re-exposure
+  strengths?: string[];
+  challenges?: string[];
+  // Freshness salt: same value within one session render (cache hit),
+  // different across sessions/day so repeat sessions get fresh Claude output.
+  freshnessSalt?: string;
+  // Optional purpose tag so different callers on the same day get distinct cache rows.
+  variant?: string;
 }
 
 function makeCacheKey(a: GenArgs): string {
@@ -34,7 +39,9 @@ function makeCacheKey(a: GenArgs): string {
   const m = (a.recentMisses ?? []).slice(0, 6).sort().join(",");
   const s = (a.strengths ?? []).slice(0, 8).sort().join(",");
   const c = (a.challenges ?? []).slice(0, 8).sort().join(",");
-  return `${a.type}::${gs}::${hs}::t=${t}::m=${m}::s=${s}::c=${c}`;
+  const f = a.freshnessSalt ?? "";
+  const v = a.variant ?? "";
+  return `${a.type}::${gs}::${hs}::t=${t}::m=${m}::s=${s}::c=${c}::f=${f}::v=${v}`;
 }
 
 function fallbackWordList(allowedGraphemes: string[], known: string[]): string[] {
