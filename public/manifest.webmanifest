@@ -1,0 +1,12 @@
+{
+  "name": "Reading Garden",
+  "short_name": "Reading Garden",
+  "description": "A calm, parent-guided phonics reader for young English learners.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f5efdf",
+  "theme_color": "#5c7a55",
+  "icons": [
+    { "src": "/favicon.ico", "sizes": "any", "type": "image/x-icon" }
+  ]
+}
