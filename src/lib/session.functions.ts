@@ -390,7 +390,7 @@ export const buildFlashcardDeck = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }): Promise<SessionCard[]> => {
     const { supabase } = context;
-    const size = data.size ?? 10;
+    const size = data.size ?? 20;
     const t = today();
 
     // 1) Preferred: due items
