@@ -2,20 +2,71 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { applyOutcome } from "./srs";
-import type { SessionCard, SessionPlan, QueuedEvent, Outcome } from "./types";
+import type { SessionCard, SessionPlan, QueuedEvent, Outcome, SessionStage, StageIntro } from "./types";
 import { generateContentInternal } from "./content-helper";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
-// Build a session plan: warmup (due), target (learning/next), practice (AI), game, wrapup marker
+// Outcomes accepted from the client. "hesitated" retained for backward-compat
+// (older UI versions still emit it).
+const OUTCOME_ENUM = z.enum(["got_it", "self_corrected", "prompted", "missed", "hesitated"]);
+const CHALLENGE_OUTCOMES = new Set(["missed", "prompted", "self_corrected", "hesitated"]);
+
+async function computeSessionSeq(supabase: any, learner_id: string): Promise<number> {
+  // How many sessions has this learner started today? Adds +1 as the seq for the new one.
+  const startOfDay = new Date();
+  startOfDay.setUTCHours(0, 0, 0, 0);
+  const { count } = await supabase
+    .from("sessions")
+    .select("id", { count: "exact", head: true })
+    .eq("learner_id", learner_id)
+    .gte("created_at", startOfDay.toISOString());
+  return (count ?? 0) + 1;
+}
+
+function stageIntro(stage: SessionStage, sound?: string | null): StageIntro | undefined {
+  switch (stage) {
+    case "warmup":
+      return { title: "Warm-up", guidance: "Quick review of sounds they already know — build confidence." };
+    case "target":
+      return {
+        title: "New sound",
+        guidance: sound
+          ? `Model the sound "${sound}" once, mouth clear. Then invite them to try.`
+          : "Model the sound once, mouth clear. Then invite them to try.",
+      };
+    case "blend":
+      return { title: "Blend ladder", guidance: "Sound out each letter, then blend. Slow → smooth." };
+    case "practice":
+      return { title: "Word reading", guidance: "Let them try first. Only prompt if truly stuck." };
+    case "sentence":
+      return { title: "Sentence", guidance: "Point under each word. Read together if needed, then them alone." };
+    case "story":
+      return { title: "Mini story", guidance: "Enjoy it together — accuracy over speed. Celebrate the read." };
+    case "interference":
+      return {
+        title: "Sound check",
+        guidance: "This letter says something different in Swedish. Contrast the two out loud.",
+      };
+    case "game":
+      return { title: "Quick game", guidance: "Fast recall — no pressure, just play." };
+    case "wrapup":
+      return { title: "Wrap-up", guidance: "Celebrate one specific thing they did well today." };
+  }
+  return undefined;
+}
+
+// Build a lesson plan: warmup → target → blend → practice words → sentence → story → interference → game → wrapup
 export const startSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { learner_id: string }) => z.object({ learner_id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }): Promise<SessionPlan> => {
     const { supabase } = context;
     const t = today();
+    const sessionSeq = await computeSessionSeq(supabase, data.learner_id);
+    const freshnessSalt = `${t}#${sessionSeq}`;
 
-    // 1) Warm-up: 3-5 due items (mix gpc + heart word)
+    // --- Warm-up: 3-5 due items (mix gpc + heart word) ---
     const { data: dueGpcs } = await supabase
       .from("learner_gpc_status")
       .select("gpc_id, leitner_box, status, gpcs(grapheme, sound_label, example_word)")
@@ -55,12 +106,12 @@ export const startSession = createServerFn({ method: "POST" })
         stage: "warmup",
       });
     }
-    warmup.splice(5); // cap at 5
+    warmup.splice(5);
 
-    // 2) Target: pick a "learning" GPC, else the next "not_started" by order_index
+    // --- Target: pick a "learning" GPC, else promote next "not_started" ---
     const { data: learningGpc } = await supabase
       .from("learner_gpc_status")
-      .select("gpc_id, gpcs(id, grapheme, sound_label, example_word, order_index)")
+      .select("gpc_id, gpcs(id, grapheme, sound_label, example_word, order_index, phase)")
       .eq("learner_id", data.learner_id)
       .eq("status", "learning")
       .order("gpcs(order_index)", { ascending: true })
@@ -86,7 +137,6 @@ export const startSession = createServerFn({ method: "POST" })
         .limit(1)
         .maybeSingle();
       if (nextGpc) {
-        // promote it to "learning"
         await supabase
           .from("learner_gpc_status")
           .update({ status: "learning" })
@@ -101,15 +151,17 @@ export const startSession = createServerFn({ method: "POST" })
       }
     }
 
+    // Interference lookup for target
+    const { data: targetInterference } = targetGpc
+      ? await supabase
+          .from("interference_items")
+          .select("*")
+          .eq("grapheme", targetGpc.grapheme)
+          .maybeSingle()
+      : { data: null };
+
     const targetCards: SessionCard[] = [];
     if (targetGpc) {
-      // interference?
-      const { data: interference } = await supabase
-        .from("interference_items")
-        .select("*")
-        .eq("grapheme", targetGpc.grapheme)
-        .maybeSingle();
-
       targetCards.push({
         key: `t-${targetGpc.id}`,
         item_type: "gpc",
@@ -117,21 +169,23 @@ export const startSession = createServerFn({ method: "POST" })
         display: targetGpc.grapheme,
         sound_label: targetGpc.sound_label,
         example_word: targetGpc.example_word,
-        interference: interference ?? null,
+        interference: targetInterference ?? null,
         stage: "target",
       });
     }
 
-    // 3) Practice: AI content restricted to reached graphemes + known heart words,
-    //    personalised with age, target GPC, recent misses, and interference.
+    // --- Learner phase & context for AI generation ---
     const { data: reachedGpcs } = await supabase
       .from("learner_gpc_status")
-      .select("gpc_id, leitner_box, correct_streak, status, gpcs(id, grapheme, sound_label)")
+      .select("gpc_id, leitner_box, correct_streak, status, gpcs(id, grapheme, sound_label, phase)")
       .eq("learner_id", data.learner_id)
       .neq("status", "not_started");
 
     const allowedGraphemes = (reachedGpcs ?? []).map((r: any) => r.gpcs.grapheme as string);
     const allowedGpcIds = (reachedGpcs ?? []).map((r: any) => r.gpc_id as string);
+
+    // Current phase = highest phase among any reached GPC (defaults to 1)
+    const currentPhase = Math.max(1, ...((reachedGpcs ?? []).map((r: any) => r.gpcs?.phase ?? 1)));
 
     const { data: knownHwRows } = await supabase
       .from("learner_heart_word_status")
@@ -153,21 +207,20 @@ export const startSession = createServerFn({ method: "POST" })
       .from("interference_items")
       .select("grapheme, swedish_value, english_value");
 
-    // Recent misses (last ~30 events)
+    // Recent challenges (last ~40 events): anything that wasn't clean got_it
     const { data: recentEvents } = await supabase
       .from("session_events")
       .select("item_ref, outcome, sessions!inner(learner_id, created_at)")
       .eq("sessions.learner_id", data.learner_id)
-      .in("outcome", ["missed", "hesitated"])
+      .in("outcome", ["missed", "prompted", "self_corrected", "hesitated"])
       .order("created_at", { ascending: false, referencedTable: "sessions" as any })
-      .limit(30);
+      .limit(40);
     const recentMisses = Array.from(
       new Set((recentEvents ?? []).map((r: any) => r.item_ref).filter(Boolean)),
     ).slice(0, 8);
     const missSet = new Set(recentMisses);
 
-    // Strengths vs challenges — explicit signal for Claude so it can escalate
-    // difficulty on secure areas and re-expose gently on shaky ones.
+    // Strengths (clean & durable) vs challenges (shaky or recently non-clean)
     const strengthGraphemes: string[] = [];
     const challengeGraphemes: string[] = [];
     for (const r of (reachedGpcs ?? []) as any[]) {
@@ -188,26 +241,52 @@ export const startSession = createServerFn({ method: "POST" })
       else if (r.status === "learning" || missSet.has(w)) challengeHeartWords.push(w);
     }
 
+    const strengths = [...strengthGraphemes, ...strengthHeartWords];
+    const challenges = [...challengeGraphemes, ...challengeHeartWords];
+
+    const genBase = {
+      supabase,
+      learner_id: data.learner_id,
+      allowedGraphemes,
+      allowedGpcIds,
+      knownHeartWords,
+      ageYears,
+      targetGrapheme: targetGpc?.grapheme ?? null,
+      targetSoundLabel: targetGpc?.sound_label ?? null,
+      recentMisses,
+      interferencePairs: interferenceRows ?? [],
+      strengths,
+      challenges,
+      freshnessSalt,
+    };
+
+    // --- Blend ladder (phase >= 2): short target-featuring words, easy → harder ---
+    const blendCards: SessionCard[] = [];
+    if (currentPhase >= 2 && allowedGraphemes.length > 0) {
+      try {
+        const res = await generateContentInternal({ ...genBase, type: "word_list", variant: "blend_ladder" });
+        const words: string[] = (res.words ?? []).slice(0, 5);
+        for (const w of words) {
+          blendCards.push({
+            key: `b-${w}`,
+            item_type: "decodable_word",
+            item_ref: w,
+            display: w,
+            stage: "blend",
+          });
+        }
+      } catch (err) {
+        console.error("[startSession] blend ladder failed", err);
+      }
+    }
+
+    // --- Word practice ---
     const practiceCards: SessionCard[] = [];
     if (allowedGraphemes.length > 0) {
       try {
-        const wordListRes = await generateContentInternal({
-          supabase,
-          learner_id: data.learner_id,
-          type: "word_list",
-          allowedGraphemes,
-          allowedGpcIds,
-          knownHeartWords,
-          ageYears,
-          targetGrapheme: targetGpc?.grapheme ?? null,
-          targetSoundLabel: targetGpc?.sound_label ?? null,
-          recentMisses,
-          interferencePairs: interferenceRows ?? [],
-          strengths: [...strengthGraphemes, ...strengthHeartWords],
-          challenges: [...challengeGraphemes, ...challengeHeartWords],
-        });
-        const words: string[] = wordListRes.words ?? [];
-        for (const w of words.slice(0, 6)) {
+        const res = await generateContentInternal({ ...genBase, type: "word_list", variant: "practice_words" });
+        const words: string[] = (res.words ?? []).slice(0, 8);
+        for (const w of words) {
           practiceCards.push({
             key: `p-w-${w}`,
             item_type: "decodable_word",
@@ -216,39 +295,67 @@ export const startSession = createServerFn({ method: "POST" })
             stage: "practice",
           });
         }
+      } catch (err) {
+        console.error("[startSession] practice words failed", err);
+      }
+    }
 
-        const sentenceRes = await generateContentInternal({
-          supabase,
-          learner_id: data.learner_id,
-          type: "sentence",
-          allowedGraphemes,
-          allowedGpcIds,
-          knownHeartWords,
-          ageYears,
-          targetGrapheme: targetGpc?.grapheme ?? null,
-          targetSoundLabel: targetGpc?.sound_label ?? null,
-          recentMisses,
-          interferencePairs: interferenceRows ?? [],
-          strengths: [...strengthGraphemes, ...strengthHeartWords],
-          challenges: [...challengeGraphemes, ...challengeHeartWords],
-        });
-        const sentence: string = sentenceRes.sentence ?? "";
+    // --- Sentence (phase >= 3) ---
+    const sentenceCards: SessionCard[] = [];
+    if (currentPhase >= 3 && allowedGraphemes.length > 0) {
+      try {
+        const res = await generateContentInternal({ ...genBase, type: "sentence", variant: "sentence" });
+        const sentence: string = res.sentence ?? "";
         if (sentence) {
-          practiceCards.push({
-            key: `p-s`,
+          sentenceCards.push({
+            key: `s-sent`,
             item_type: "decodable_word",
             item_ref: sentence,
             display: sentence,
-            stage: "practice",
+            stage: "sentence",
             meta: { kind: "sentence" },
           });
         }
       } catch (err) {
-        console.error("[startSession] practice content failed", err);
+        console.error("[startSession] sentence failed", err);
       }
     }
 
-    // 4) Game: pick 3 taught GPCs, ask "tap the sound for ___"
+    // --- Mini story (phase >= 5) ---
+    const storyCards: SessionCard[] = [];
+    if (currentPhase >= 5 && allowedGraphemes.length > 0) {
+      try {
+        const res = await generateContentInternal({ ...genBase, type: "story", variant: "story" });
+        const story: string = res.story ?? "";
+        if (story) {
+          storyCards.push({
+            key: `s-story`,
+            item_type: "decodable_word",
+            item_ref: story,
+            display: story,
+            stage: "story",
+            meta: { kind: "sentence" },
+          });
+        }
+      } catch (err) {
+        console.error("[startSession] story failed", err);
+      }
+    }
+
+    // --- Interference stage: only if the target has a Swedish confusable ---
+    const interferenceCards: SessionCard[] = [];
+    if (targetInterference && targetGpc) {
+      interferenceCards.push({
+        key: `i-${targetGpc.id}`,
+        item_type: "gpc",
+        item_ref: targetGpc.id,
+        display: targetInterference.example_word ?? targetGpc.grapheme,
+        interference: targetInterference,
+        stage: "interference",
+      });
+    }
+
+    // --- Game ---
     const gameSourcePool = (reachedGpcs ?? []).slice(0, 12);
     const shuffled = [...gameSourcePool].sort(() => Math.random() - 0.5);
     const gameCards: SessionCard[] = shuffled.slice(0, 3).map((r: any) => ({
@@ -260,17 +367,34 @@ export const startSession = createServerFn({ method: "POST" })
       meta: { kind: "quick_game" },
     }));
 
-    // 5) Wrap-up marker card
+    // --- Wrap-up ---
     const wrapup: SessionCard[] = [
       { key: "wrap", item_type: "gpc", item_ref: "", display: "", stage: "wrapup" },
     ];
 
-    const cards = [...warmup, ...targetCards, ...practiceCards, ...gameCards, ...wrapup];
+    // Assemble in order, attach stage_intro to the first card of each stage
+    const ordered: SessionCard[] = [
+      ...warmup,
+      ...targetCards,
+      ...blendCards,
+      ...practiceCards,
+      ...sentenceCards,
+      ...storyCards,
+      ...interferenceCards,
+      ...gameCards,
+      ...wrapup,
+    ];
+    let prevStage: SessionStage | null = null;
+    for (const c of ordered) {
+      if (c.stage !== prevStage) {
+        c.stage_intro = stageIntro(c.stage, c.sound_label ?? targetGpc?.sound_label ?? null);
+        prevStage = c.stage;
+      }
+    }
 
-    // Create session row
     const { data: session, error: se } = await supabase
       .from("sessions")
-      .insert({ learner_id: data.learner_id, plan_json: { cards } as any })
+      .insert({ learner_id: data.learner_id, plan_json: { cards: ordered } as any })
       .select("id")
       .single();
     if (se) throw new Error(se.message);
@@ -278,12 +402,12 @@ export const startSession = createServerFn({ method: "POST" })
     return {
       session_id: session.id,
       learner_id: data.learner_id,
-      cards,
+      cards: ordered,
       target_gpc_id: targetGpc?.id,
     };
   });
 
-// Save the outcomes, run SRS updates, update rewards
+// -------- Save session --------
 export const saveSessionEvents = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { session_id: string; learner_id: string; events: QueuedEvent[]; duration_seconds: number; parent_notes?: string | null }) =>
@@ -296,7 +420,7 @@ export const saveSessionEvents = createServerFn({ method: "POST" })
             card_key: z.string(),
             item_type: z.enum(["gpc", "heart_word", "decodable_word"]),
             item_ref: z.string(),
-            outcome: z.enum(["got_it", "hesitated", "missed"]),
+            outcome: OUTCOME_ENUM,
           }),
         ),
         duration_seconds: z.number().int().nonnegative(),
@@ -307,7 +431,6 @@ export const saveSessionEvents = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase } = context;
 
-    // Insert events
     if (data.events.length) {
       const rows = data.events.map((e) => ({
         session_id: data.session_id,
@@ -319,7 +442,6 @@ export const saveSessionEvents = createServerFn({ method: "POST" })
       if (error) throw new Error(error.message);
     }
 
-    // Update session
     await supabase
       .from("sessions")
       .update({ duration_seconds: data.duration_seconds, parent_notes: data.parent_notes ?? null })
@@ -327,7 +449,6 @@ export const saveSessionEvents = createServerFn({ method: "POST" })
 
     const newlySecureGpcIds: string[] = [];
 
-    // Apply SRS per unique gpc/heart_word item
     const gpcEvents = data.events.filter((e) => e.item_type === "gpc" && e.item_ref);
     const hwEvents = data.events.filter((e) => e.item_type === "heart_word" && e.item_ref);
 
@@ -375,8 +496,10 @@ export const saveSessionEvents = createServerFn({ method: "POST" })
         .eq("heart_word_id", ev.item_ref);
     }
 
-    // Rewards: +1 star per got_it, streak update
-    const stars = data.events.filter((e) => e.outcome === "got_it").length;
+    // Stars: 1 per got_it, 0.5 (rounded) per self_corrected
+    const stars =
+      data.events.filter((e) => e.outcome === "got_it").length +
+      Math.floor(data.events.filter((e) => e.outcome === "self_corrected").length / 2);
     const t = today();
     const { data: r } = await supabase
       .from("rewards")
@@ -386,7 +509,7 @@ export const saveSessionEvents = createServerFn({ method: "POST" })
     let current = r?.current_streak_days ?? 0;
     const last = r?.last_session_date;
     if (last === t) {
-      // same day, no change
+      // same day
     } else if (last) {
       const lastDate = new Date(last);
       const todayDate = new Date(t);
@@ -409,7 +532,7 @@ export const saveSessionEvents = createServerFn({ method: "POST" })
     return { ok: true, newly_secure_gpc_ids: newlySecureGpcIds, stars_awarded: stars };
   });
 
-// FLASHCARDS DECK
+// -------- FLASHCARDS: balanced 20-card mix (sounds + heart words + decodable words) --------
 export const buildFlashcardDeck = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { learner_id: string; size?: number }) =>
@@ -419,8 +542,15 @@ export const buildFlashcardDeck = createServerFn({ method: "POST" })
     const { supabase } = context;
     const size = data.size ?? 20;
     const t = today();
+    const sessionSeq = await computeSessionSeq(supabase, data.learner_id);
+    const freshnessSalt = `${t}#fc#${sessionSeq}`;
 
-    // 1) Preferred: due items
+    // Target counts within the deck
+    const targetGpcCount = Math.round(size * 0.4);   // ~8 of 20
+    const targetHwCount = Math.round(size * 0.2);    // ~4 of 20
+    const targetWordCount = size - targetGpcCount - targetHwCount; // ~8 of 20
+
+    // --- GPCs: due first, top up with active-not-due ---
     const { data: dueGpcs } = await supabase
       .from("learner_gpc_status")
       .select("gpc_id, leitner_box, next_due_date, status, gpcs(grapheme, sound_label, example_word, order_index)")
@@ -428,8 +558,24 @@ export const buildFlashcardDeck = createServerFn({ method: "POST" })
       .neq("status", "not_started")
       .lte("next_due_date", t)
       .order("next_due_date", { ascending: true })
-      .limit(size);
+      .limit(targetGpcCount * 2);
 
+    let gpcs: any[] = dueGpcs ?? [];
+    if (gpcs.length < targetGpcCount) {
+      const { data: activeGpcs } = await supabase
+        .from("learner_gpc_status")
+        .select("gpc_id, leitner_box, status, gpcs(grapheme, sound_label, example_word, order_index)")
+        .eq("learner_id", data.learner_id)
+        .neq("status", "not_started")
+        .order("leitner_box", { ascending: true })
+        .limit(targetGpcCount * 2);
+      const seen = new Set(gpcs.map((g) => g.gpc_id));
+      const extra = (activeGpcs ?? []).filter((g: any) => !seen.has(g.gpc_id));
+      gpcs = [...gpcs, ...extra];
+    }
+    gpcs = gpcs.slice(0, targetGpcCount);
+
+    // --- Heart words: due first, top up with active ---
     const { data: dueHws } = await supabase
       .from("learner_heart_word_status")
       .select("heart_word_id, leitner_box, next_due_date, status, heart_words(word, order_index)")
@@ -437,38 +583,62 @@ export const buildFlashcardDeck = createServerFn({ method: "POST" })
       .neq("status", "not_started")
       .lte("next_due_date", t)
       .order("next_due_date", { ascending: true })
-      .limit(size);
+      .limit(targetHwCount * 2);
 
-    let gpcs: any[] = dueGpcs ?? [];
     let hws: any[] = dueHws ?? [];
-
-    // 2) Fallback: pick level-appropriate active items even if not due
-    if (gpcs.length + hws.length < Math.min(size, 6)) {
-      // Prioritise learning + practising, then a handful of secure for review
-      const { data: activeGpcs } = await supabase
-        .from("learner_gpc_status")
-        .select("gpc_id, leitner_box, status, gpcs(grapheme, sound_label, example_word, order_index)")
-        .eq("learner_id", data.learner_id)
-        .neq("status", "not_started")
-        .order("leitner_box", { ascending: true })
-        .limit(size * 2);
+    if (hws.length < targetHwCount) {
       const { data: activeHws } = await supabase
         .from("learner_heart_word_status")
         .select("heart_word_id, leitner_box, status, heart_words(word, order_index)")
         .eq("learner_id", data.learner_id)
         .neq("status", "not_started")
         .order("leitner_box", { ascending: true })
-        .limit(size);
-      const seenG = new Set(gpcs.map((g) => g.gpc_id));
-      const seenH = new Set(hws.map((h) => h.heart_word_id));
-      const extraG = (activeGpcs ?? []).filter((g: any) => !seenG.has(g.gpc_id));
-      const extraH = (activeHws ?? []).filter((h: any) => !seenH.has(h.heart_word_id));
-      // Weight: keep learning/practising first, add secure as light review
-      const rank = (s: string) => (s === "learning" ? 0 : s === "practising" ? 1 : 2);
-      extraG.sort((a: any, b: any) => rank(a.status) - rank(b.status));
-      extraH.sort((a: any, b: any) => rank(a.status) - rank(b.status));
-      gpcs = [...gpcs, ...extraG].slice(0, size);
-      hws = [...hws, ...extraH].slice(0, Math.max(2, Math.floor(size / 3)));
+        .limit(targetHwCount * 2);
+      const seen = new Set(hws.map((h) => h.heart_word_id));
+      const extra = (activeHws ?? []).filter((h: any) => !seen.has(h.heart_word_id));
+      hws = [...hws, ...extra];
+    }
+    hws = hws.slice(0, targetHwCount);
+
+    // --- Decodable words at level (via Claude generate-content) ---
+    const { data: reachedGpcs } = await supabase
+      .from("learner_gpc_status")
+      .select("gpc_id, gpcs(grapheme)")
+      .eq("learner_id", data.learner_id)
+      .neq("status", "not_started");
+    const allowedGraphemes = (reachedGpcs ?? []).map((r: any) => r.gpcs.grapheme as string);
+    const allowedGpcIds = (reachedGpcs ?? []).map((r: any) => r.gpc_id as string);
+    const { data: knownHwRows } = await supabase
+      .from("learner_heart_word_status")
+      .select("heart_words(word)")
+      .eq("learner_id", data.learner_id)
+      .neq("status", "not_started");
+    const knownHeartWords = (knownHwRows ?? []).map((r: any) => r.heart_words.word as string);
+
+    let wordCards: SessionCard[] = [];
+    if (targetWordCount > 0 && allowedGraphemes.length > 0) {
+      try {
+        const res = await generateContentInternal({
+          supabase,
+          learner_id: data.learner_id,
+          type: "game_words",
+          allowedGraphemes,
+          allowedGpcIds,
+          knownHeartWords,
+          freshnessSalt,
+          variant: "flashcards",
+        });
+        const words: string[] = (res.words ?? []).slice(0, targetWordCount);
+        wordCards = words.map((w) => ({
+          key: `fc-w-${w}`,
+          item_type: "decodable_word",
+          item_ref: w,
+          display: w,
+          stage: "warmup",
+        }));
+      } catch (err) {
+        console.error("[buildFlashcardDeck] word gen failed", err);
+      }
     }
 
     const cards: SessionCard[] = [];
@@ -492,6 +662,8 @@ export const buildFlashcardDeck = createServerFn({ method: "POST" })
         stage: "warmup",
       });
     }
+    cards.push(...wordCards);
+
     return cards.sort(() => Math.random() - 0.5).slice(0, size);
   });
 
@@ -506,14 +678,13 @@ export const saveFlashcardEvents = createServerFn({ method: "POST" })
             card_key: z.string(),
             item_type: z.enum(["gpc", "heart_word", "decodable_word"]),
             item_ref: z.string(),
-            outcome: z.enum(["got_it", "hesitated", "missed"]),
+            outcome: OUTCOME_ENUM,
           }),
         ),
       })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
-    // create a synthetic session for record-keeping
     const { supabase } = context;
     const { data: session } = await supabase
       .from("sessions")
@@ -579,8 +750,9 @@ export const saveFlashcardEvents = createServerFn({ method: "POST" })
       }
     }
 
-    // Stars
-    const stars = data.events.filter((e) => e.outcome === "got_it").length;
+    const stars =
+      data.events.filter((e) => e.outcome === "got_it").length +
+      Math.floor(data.events.filter((e) => e.outcome === "self_corrected").length / 2);
     const { data: r } = await supabase
       .from("rewards")
       .select("stars")
