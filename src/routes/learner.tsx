@@ -1,7 +1,6 @@
 import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
 import { listLearners, getLearnerSummary } from "@/lib/learners.functions";
 import { getParentSettings, setActiveLearner as setActiveLearnerFn } from "@/lib/parent.functions";
 import { Garden } from "@/components/Garden";
@@ -30,11 +29,6 @@ function KidHome() {
     queryFn: () => getSummaryFn({ data: { learner_id: activeId! } }),
     enabled: !!activeId,
   });
-
-  const [dyslexicClass, setDyslexicClass] = useState("");
-  useEffect(() => {
-    setDyslexicClass(settingsQ.data?.dyslexia_font ? "font-dyslexic" : "");
-  }, [settingsQ.data?.dyslexia_font]);
 
   if (learnersQ.isSuccess && learners.length === 0) {
     return (
@@ -68,7 +62,8 @@ function KidHome() {
   const dueCount = summaryQ.data?.due_count ?? 0;
 
   return (
-    <div className={`min-h-screen p-4 md:p-8 ${dyslexicClass}`}>
+    <div className="min-h-screen p-4 md:p-8">
+
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
