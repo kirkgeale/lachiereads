@@ -26,6 +26,8 @@ interface Req {
   target_sound_label?: string | null;
   recent_misses?: string[];            // words / graphemes the learner missed lately
   interference_pairs?: InterferencePair[];
+  strengths?: string[];                // graphemes/heart-words the learner reliably nails
+  challenges?: string[];               // graphemes/heart-words that are shaky or freshly missed
 }
 
 const SYSTEM = `You write extremely short, calm, wholesome English reading practice for a ~7-year-old native English speaker who is being formally schooled in Swedish and is now learning to DECODE English via synthetic phonics.
