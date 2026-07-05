@@ -207,7 +207,7 @@ export const startSession = createServerFn({ method: "POST" })
     // Create session row
     const { data: session, error: se } = await supabase
       .from("sessions")
-      .insert({ learner_id: data.learner_id, plan_json: { cards } })
+      .insert({ learner_id: data.learner_id, plan_json: { cards } as any })
       .select("id")
       .single();
     if (se) throw new Error(se.message);
