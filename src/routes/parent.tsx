@@ -3,7 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { getParentSettings, setDyslexiaFont } from "@/lib/parent.functions";
 import { listLearners } from "@/lib/learners.functions";
-import { ChevronLeft, Users, Map, AlertTriangle, LineChart, Award, Type } from "lucide-react";
+import { ChevronLeft, Users, Map, AlertTriangle, LineChart, Award, Type, ClipboardCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 
@@ -93,6 +93,7 @@ function ParentLayout() {
               {navItem(`/parent/interference/${activeLearner}`, "Interference", AlertTriangle)}
               {navItem(`/parent/sessions/${activeLearner}`, "Sessions", LineChart)}
               {navItem(`/parent/benchmark/${activeLearner}`, "Benchmark", Award)}
+              {navItem(`/parent/assessment/${activeLearner}`, "Assessment", ClipboardCheck)}
             </>
           )}
         </nav>

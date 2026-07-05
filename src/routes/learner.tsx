@@ -147,13 +147,13 @@ function KidHome() {
           </button>
           <button
             onClick={() => activeId && navigate({ to: "/flashcards/$learnerId", params: { learnerId: activeId } })}
-            disabled={!activeId || dueCount === 0}
+            disabled={!activeId}
             className="rounded-3xl bg-accent text-accent-foreground p-8 flex items-center justify-between hover:bg-accent/90 active:scale-[0.98] transition-all disabled:opacity-50"
           >
             <div className="text-left">
               <div className="text-xl font-display">Flashcards</div>
               <div className="text-sm opacity-80">
-                {dueCount > 0 ? `${dueCount} due today` : "Nothing due — well done"}
+                {dueCount > 0 ? `${dueCount} due today` : "Quick review deck"}
               </div>
             </div>
             <Zap className="w-8 h-8" />
