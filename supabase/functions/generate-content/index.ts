@@ -38,9 +38,13 @@ Non-negotiable rules:
 3. If a target grapheme is provided, HEAVILY feature it: at least half of the words in a word list should contain it; a sentence should include it at least twice when natural.
 4. If recent misses are provided, include 1-2 gentle re-exposures of those patterns (do NOT stack them; embed in easy contexts).
 5. If Swedish-English interference pairs are provided, favour minimal-pair contrasts on those graphemes to reinforce the English value (e.g. for 'i' short: sit / bit / fin, not Swedish-flavoured contexts).
-6. Themes: nature, animals, garden, everyday small moments. Nothing scary, no wordplay, no idioms, no cultural in-jokes.
-7. Sentences and stories must sound like natural English a child would actually say. No word salad.
-8. Return ONLY strict JSON matching the requested schema. No prose, no code fences, no commentary.`;
+6. CALIBRATE DIFFICULTY per dimension using the learner's strengths and challenges:
+   - STRENGTHS (reliably correct): stretch them — use longer words, more of them per sentence, denser blends, or trickier positions (initial/medial/final). Do not baby-step areas the child owns.
+   - CHALLENGES (shaky or freshly missed): keep contexts short and easy, isolate one hard element at a time, and re-expose gently. Never combine two challenge items in the same word.
+   - Absent strengths/challenges means "unknown yet" — pitch at a neutral baseline.
+7. Themes: nature, animals, garden, everyday small moments. Nothing scary, no wordplay, no idioms, no cultural in-jokes.
+8. Sentences and stories must sound like natural English a child would actually say. No word salad.
+9. Return ONLY strict JSON matching the requested schema. No prose, no code fences, no commentary.`;
 
 function buildPrompt(r: Req): string {
   const gs = r.allowed_graphemes.join(", ");
