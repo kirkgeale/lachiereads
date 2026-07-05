@@ -170,7 +170,7 @@ export const finalizeAssessment = createServerFn({ method: "POST" })
       .update({
         events_json: data.results,
         report_json: report,
-        summary: report.summary ?? null,
+        summary: report.plain_summary ?? report.summary ?? null,
         estimated_level: report.estimated_level ?? null,
         applied: true,
       })
