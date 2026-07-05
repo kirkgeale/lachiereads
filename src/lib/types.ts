@@ -39,7 +39,7 @@ export interface SessionCard {
   example_word?: string;
   interference?: InterferenceItem | null;
   stage: "warmup" | "target" | "practice" | "game" | "wrapup";
-  meta?: Record<string, unknown>;
+  meta?: Record<string, string | number | boolean | null>;
 }
 
 export interface SessionPlan {
