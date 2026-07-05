@@ -126,7 +126,7 @@ export const startSession = createServerFn({ method: "POST" })
     //    personalised with age, target GPC, recent misses, and interference.
     const { data: reachedGpcs } = await supabase
       .from("learner_gpc_status")
-      .select("gpc_id, gpcs(id, grapheme)")
+      .select("gpc_id, leitner_box, correct_streak, status, gpcs(id, grapheme, sound_label)")
       .eq("learner_id", data.learner_id)
       .neq("status", "not_started");
 
@@ -135,7 +135,7 @@ export const startSession = createServerFn({ method: "POST" })
 
     const { data: knownHwRows } = await supabase
       .from("learner_heart_word_status")
-      .select("heart_words(word)")
+      .select("leitner_box, correct_streak, status, heart_words(word)")
       .eq("learner_id", data.learner_id)
       .neq("status", "not_started");
     const knownHeartWords = (knownHwRows ?? []).map((r: any) => r.heart_words.word as string);
@@ -164,6 +164,29 @@ export const startSession = createServerFn({ method: "POST" })
     const recentMisses = Array.from(
       new Set((recentEvents ?? []).map((r: any) => r.item_ref).filter(Boolean)),
     ).slice(0, 8);
+    const missSet = new Set(recentMisses);
+
+    // Strengths vs challenges — explicit signal for Claude so it can escalate
+    // difficulty on secure areas and re-expose gently on shaky ones.
+    const strengthGraphemes: string[] = [];
+    const challengeGraphemes: string[] = [];
+    for (const r of (reachedGpcs ?? []) as any[]) {
+      const g = r.gpcs.grapheme as string;
+      const strong =
+        (r.status === "secure" || (r.status === "practising" && (r.correct_streak ?? 0) >= 3)) &&
+        !missSet.has(r.gpc_id) && !missSet.has(g);
+      const shaky =
+        r.status === "learning" || (r.correct_streak ?? 0) === 0 || missSet.has(r.gpc_id) || missSet.has(g);
+      if (strong) strengthGraphemes.push(g);
+      else if (shaky) challengeGraphemes.push(g);
+    }
+    const strengthHeartWords: string[] = [];
+    const challengeHeartWords: string[] = [];
+    for (const r of (knownHwRows ?? []) as any[]) {
+      const w = r.heart_words.word as string;
+      if (r.status === "secure" && !missSet.has(w)) strengthHeartWords.push(w);
+      else if (r.status === "learning" || missSet.has(w)) challengeHeartWords.push(w);
+    }
 
     const practiceCards: SessionCard[] = [];
     if (allowedGraphemes.length > 0) {
