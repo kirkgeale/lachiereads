@@ -32,7 +32,9 @@ function makeCacheKey(a: GenArgs): string {
   const hs = [...a.knownHeartWords].sort().join(",");
   const t = a.targetGrapheme ?? "";
   const m = (a.recentMisses ?? []).slice(0, 6).sort().join(",");
-  return `${a.type}::${gs}::${hs}::t=${t}::m=${m}`;
+  const s = (a.strengths ?? []).slice(0, 8).sort().join(",");
+  const c = (a.challenges ?? []).slice(0, 8).sort().join(",");
+  return `${a.type}::${gs}::${hs}::t=${t}::m=${m}::s=${s}::c=${c}`;
 }
 
 function fallbackWordList(allowedGraphemes: string[], known: string[]): string[] {
