@@ -23,6 +23,8 @@ interface GenArgs {
   targetSoundLabel?: string | null;
   recentMisses?: string[];
   interferencePairs?: InterferencePair[];
+  strengths?: string[];  // items the learner reliably gets right — safe to stretch
+  challenges?: string[]; // items shaky or freshly missed — needs gentle re-exposure
 }
 
 function makeCacheKey(a: GenArgs): string {
@@ -30,7 +32,9 @@ function makeCacheKey(a: GenArgs): string {
   const hs = [...a.knownHeartWords].sort().join(",");
   const t = a.targetGrapheme ?? "";
   const m = (a.recentMisses ?? []).slice(0, 6).sort().join(",");
-  return `${a.type}::${gs}::${hs}::t=${t}::m=${m}`;
+  const s = (a.strengths ?? []).slice(0, 8).sort().join(",");
+  const c = (a.challenges ?? []).slice(0, 8).sort().join(",");
+  return `${a.type}::${gs}::${hs}::t=${t}::m=${m}::s=${s}::c=${c}`;
 }
 
 function fallbackWordList(allowedGraphemes: string[], known: string[]): string[] {
@@ -76,6 +80,8 @@ export async function generateContentInternal(a: GenArgs): Promise<any> {
         target_sound_label: a.targetSoundLabel ?? null,
         recent_misses: a.recentMisses ?? [],
         interference_pairs: a.interferencePairs ?? [],
+        strengths: a.strengths ?? [],
+        challenges: a.challenges ?? [],
       },
     });
     if (error) throw error;
