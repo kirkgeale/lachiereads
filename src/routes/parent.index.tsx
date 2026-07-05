@@ -43,6 +43,8 @@ function ParentHome() {
     date: new Date(s.date).toLocaleDateString(),
     events: s.total_events,
     got_it: s.got_it,
+    self_corrected: (s as any).self_corrected ?? 0,
+    prompted: (s as any).prompted ?? 0,
     hesitated: s.hesitated,
     missed: s.missed,
   }));
@@ -86,7 +88,9 @@ function ParentHome() {
                 <Tooltip />
                 <Legend />
                 <Bar dataKey="got_it" stackId="a" fill="hsl(var(--chart-1))" name="Got it" />
-                <Bar dataKey="hesitated" stackId="a" fill="hsl(var(--chart-4))" name="Hesitated" />
+                <Bar dataKey="self_corrected" stackId="a" fill="hsl(var(--chart-3))" name="Self-corrected" />
+                <Bar dataKey="prompted" stackId="a" fill="hsl(var(--chart-4))" name="Prompted" />
+                <Bar dataKey="hesitated" stackId="a" fill="hsl(var(--chart-5))" name="Hesitated" />
                 <Bar dataKey="missed" stackId="a" fill="hsl(var(--chart-2))" name="Missed" />
               </BarChart>
             </ResponsiveContainer>
