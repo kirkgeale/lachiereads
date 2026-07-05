@@ -1,14 +1,10 @@
 import { createFileRoute, Outlet, useNavigate, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useMutation, useQuery } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
-import { getParentSettings, setPin as setPinFn, verifyPin, setDyslexiaFont } from "@/lib/parent.functions";
-import { requireParentAuth } from "@/lib/auth-guard";
-import { supabase } from "@/integrations/supabase/client";
+import { useQuery } from "@tanstack/react-query";
+import { getParentSettings, setDyslexiaFont } from "@/lib/parent.functions";
 import { listLearners } from "@/lib/learners.functions";
-import { Lock, LogOut, ChevronLeft, Users, Map, AlertTriangle, LineChart, Award, Type } from "lucide-react";
+import { ChevronLeft, Users, Map, AlertTriangle, LineChart, Award, Type } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
 
 const UNLOCK_KEY = "rg-parent-unlocked";
 
