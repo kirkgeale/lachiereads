@@ -6,7 +6,7 @@
 // Uses claude-sonnet-4-5 with extended thinking for careful, best-practice
 // synthetic-phonics judgement.
 
-const CLAUDE_MODEL = "claude-sonnet-4-5";
+const CLAUDE_MODEL = "claude-opus-4-8";
 const THINKING_BUDGET = 4000;
 const MAX_TOKENS = 6000;
 
