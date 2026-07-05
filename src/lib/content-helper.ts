@@ -5,6 +5,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { validateContent, extractWords } from "./decodable";
 
+export interface InterferencePair {
+  grapheme: string;
+  swedish_value: string;
+  english_value: string;
+}
+
 interface GenArgs {
   supabase: SupabaseClient;
   learner_id: string;
@@ -12,15 +18,21 @@ interface GenArgs {
   allowedGraphemes: string[];
   allowedGpcIds: string[];
   knownHeartWords: string[];
+  ageYears?: number | null;
+  targetGrapheme?: string | null;
+  targetSoundLabel?: string | null;
+  recentMisses?: string[];
+  interferencePairs?: InterferencePair[];
 }
 
 function makeCacheKey(a: GenArgs): string {
   const gs = [...a.allowedGraphemes].sort().join(",");
   const hs = [...a.knownHeartWords].sort().join(",");
-  return `${a.type}::${gs}::${hs}`;
+  const t = a.targetGrapheme ?? "";
+  const m = (a.recentMisses ?? []).slice(0, 6).sort().join(",");
+  return `${a.type}::${gs}::${hs}::t=${t}::m=${m}`;
 }
 
-// Fallback: assemble simple decodable words from the allowed set
 function fallbackWordList(allowedGraphemes: string[], known: string[]): string[] {
   const singles = allowedGraphemes.filter((g) => g.length === 1 && !g.includes("_"));
   const vowels = singles.filter((g) => "aeiou".includes(g));
@@ -45,7 +57,6 @@ function fallbackWordList(allowedGraphemes: string[], known: string[]): string[]
 export async function generateContentInternal(a: GenArgs): Promise<any> {
   const cache_key = makeCacheKey(a);
 
-  // 1) cache lookup
   const { data: cached } = await a.supabase
     .from("generated_content")
     .select("content_json")
@@ -53,7 +64,6 @@ export async function generateContentInternal(a: GenArgs): Promise<any> {
     .maybeSingle();
   if (cached?.content_json) return cached.content_json;
 
-  // 2) call edge function
   let content: any = null;
   try {
     const { data, error } = await a.supabase.functions.invoke("generate-content", {
@@ -61,6 +71,11 @@ export async function generateContentInternal(a: GenArgs): Promise<any> {
         type: a.type,
         allowed_graphemes: a.allowedGraphemes,
         known_heart_words: a.knownHeartWords,
+        age_years: a.ageYears ?? null,
+        target_grapheme: a.targetGrapheme ?? null,
+        target_sound_label: a.targetSoundLabel ?? null,
+        recent_misses: a.recentMisses ?? [],
+        interference_pairs: a.interferencePairs ?? [],
       },
     });
     if (error) throw error;
@@ -69,7 +84,7 @@ export async function generateContentInternal(a: GenArgs): Promise<any> {
     console.error("[generate-content edge] error", err);
   }
 
-  // 3) validate decodability
+  // Server-side decodability validation
   let ok = false;
   if (content) {
     const words: string[] = [];
@@ -81,7 +96,6 @@ export async function generateContentInternal(a: GenArgs): Promise<any> {
     if (!ok) console.warn("[generate-content] not fully decodable, offenders:", v.offenders);
   }
 
-  // 4) fallback
   if (!content || !ok) {
     if (a.type === "word_list" || a.type === "game_words" || a.type === "pseudowords") {
       content = { words: fallbackWordList(a.allowedGraphemes, a.knownHeartWords) };
@@ -93,7 +107,6 @@ export async function generateContentInternal(a: GenArgs): Promise<any> {
     }
   }
 
-  // 5) cache
   await a.supabase
     .from("generated_content")
     .upsert(
