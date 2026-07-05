@@ -1,36 +1,77 @@
-// Reading Garden - AI content generation via Anthropic
-// Called by the app to produce short decodable words / sentences / mini-stories
-// using ONLY the graphemes and heart words the learner has reached.
+// Reading Garden - AI content generation via Anthropic (Claude Sonnet 4.5)
+// Produces short, decodable English reading practice tailored to the learner's
+// current level, target grapheme, recent misses, and Swedish-English interference.
 
-const CLAUDE_MODEL = "claude-sonnet-4-5"; // change here to swap model
+const CLAUDE_MODEL = "claude-sonnet-4-5";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
+interface InterferencePair {
+  grapheme: string;
+  swedish_value: string;
+  english_value: string;
+}
+
 interface Req {
   type: "word_list" | "sentence" | "story" | "game_words" | "pseudowords";
   allowed_graphemes: string[];
   known_heart_words: string[];
+
+  // Personalisation (all optional so the function stays backward-compatible)
+  age_years?: number | null;
+  target_grapheme?: string | null;
+  target_sound_label?: string | null;
+  recent_misses?: string[];            // words / graphemes the learner missed lately
+  interference_pairs?: InterferencePair[];
 }
 
-const SYSTEM = `You write extremely short, calm, wholesome English reading practice for a 7-year-old learning to decode English. All output MUST be strictly decodable: every word must either (a) be composed only from the allowed graphemes given, or (b) be one of the known heart words listed. Themes are gentle: nature, animals, everyday life. Nothing scary, no wordplay, no idioms. Return ONLY strict JSON — no prose, no code fences.`;
+const SYSTEM = `You write extremely short, calm, wholesome English reading practice for a ~7-year-old native English speaker who is being formally schooled in Swedish and is now learning to DECODE English via synthetic phonics.
+
+Non-negotiable rules:
+1. STRICT DECODABILITY. Every word must either (a) be composed only from the allowed graphemes provided, or (b) be one of the heart words provided. Never introduce a new grapheme or a word the child cannot decode yet.
+2. Prefer 2-5 letter words. Blends are fine when their letters are in the allowed set.
+3. If a target grapheme is provided, HEAVILY feature it: at least half of the words in a word list should contain it; a sentence should include it at least twice when natural.
+4. If recent misses are provided, include 1-2 gentle re-exposures of those patterns (do NOT stack them; embed in easy contexts).
+5. If Swedish-English interference pairs are provided, favour minimal-pair contrasts on those graphemes to reinforce the English value (e.g. for 'i' short: sit / bit / fin, not Swedish-flavoured contexts).
+6. Themes: nature, animals, garden, everyday small moments. Nothing scary, no wordplay, no idioms, no cultural in-jokes.
+7. Sentences and stories must sound like natural English a child would actually say. No word salad.
+8. Return ONLY strict JSON matching the requested schema. No prose, no code fences, no commentary.`;
 
 function buildPrompt(r: Req): string {
   const gs = r.allowed_graphemes.join(", ");
   const hs = r.known_heart_words.join(", ");
-  const common = `\nAllowed graphemes: [${gs}]\nAllowed heart words: [${hs}]\nRULE: every letter of every word must be part of one allowed grapheme or the word must be in the heart-word list. Prefer 2-4 letter words.\n`;
+  const parts: string[] = [];
+  parts.push(`Allowed graphemes: [${gs}]`);
+  parts.push(`Allowed heart words: [${hs}]`);
+  if (r.age_years != null) parts.push(`Learner age: ~${r.age_years} years`);
+  if (r.target_grapheme) {
+    parts.push(`TARGET grapheme this session: "${r.target_grapheme}"${r.target_sound_label ? ` (sound: ${r.target_sound_label})` : ""}. Feature it heavily.`);
+  }
+  if (r.recent_misses?.length) {
+    parts.push(`Recent misses / hesitations to gently re-expose: [${r.recent_misses.slice(0, 8).join(", ")}]`);
+  }
+  if (r.interference_pairs?.length) {
+    parts.push(
+      "Swedish->English interference to counter (favour minimal pairs on the English sound):\n" +
+        r.interference_pairs.map((p) => `  ${p.grapheme}: SV=${p.swedish_value}  EN=${p.english_value}`).join("\n"),
+    );
+  }
+  const common = "\n" + parts.join("\n") + "\nRULE: every letter of every word must be part of one allowed grapheme or the word must be in the heart-word list.\n";
+
   switch (r.type) {
     case "word_list":
+      return `Produce 8 short decodable English words for practice, ordered easiest to hardest.${common}Return JSON: {"words": ["...", "..."]}`;
     case "game_words":
-      return `Produce 8 short decodable English words for practice.${common}Return JSON: {"words": ["...", "..."]}`;
+      return `Produce 8 short decodable English words suitable for a quick tap-the-word game.${common}Return JSON: {"words": ["...", "..."]}`;
     case "pseudowords":
       return `Produce 6 short pseudowords (nonsense but pronounceable) for decoding practice.${common}Return JSON: {"words": ["...", "..."]}`;
     case "sentence":
-      return `Produce ONE short, calm decodable sentence (4-7 words).${common}Return JSON: {"sentence": "..."}`;
+      return `Produce ONE short, calm, natural decodable sentence (4-7 words) a 7-year-old would say.${common}Return JSON: {"sentence": "..."}`;
     case "story":
-      return `Produce a very short calm decodable mini-story (3-5 short sentences).${common}Return JSON: {"story": "..."}`;
+      return `Produce a very short calm decodable mini-story (3-5 short sentences, natural English).${common}Return JSON: {"story": "..."}`;
   }
 }
 
@@ -65,7 +106,7 @@ Deno.serve(async (req: Request) => {
       },
       body: JSON.stringify({
         model: CLAUDE_MODEL,
-        max_tokens: 512,
+        max_tokens: 700,
         system: SYSTEM,
         messages: [{ role: "user", content: prompt }],
       }),
@@ -73,7 +114,7 @@ Deno.serve(async (req: Request) => {
 
     if (!res.ok) {
       const t = await res.text();
-      console.error("[anthropic] non-ok", res.status, t);
+      console.error("[generate-content] anthropic non-ok", res.status, t);
       return new Response(JSON.stringify({ error: "anthropic_error", detail: t }), {
         status: 502,
         headers: { ...corsHeaders, "content-type": "application/json" },
@@ -81,13 +122,11 @@ Deno.serve(async (req: Request) => {
     }
     const payload = await res.json();
     const text: string = payload?.content?.[0]?.text ?? "";
-    // Strip any code fences defensively
     const clean = text.replace(/```json|```/g, "").trim();
     let parsed: any;
     try {
       parsed = JSON.parse(clean);
     } catch {
-      // try to extract JSON substring
       const m = clean.match(/\{[\s\S]*\}/);
       parsed = m ? JSON.parse(m[0]) : { error: "parse_error", raw: clean };
     }
