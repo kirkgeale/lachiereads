@@ -59,6 +59,16 @@ function buildPrompt(r: Req): string {
   if (r.recent_misses?.length) {
     parts.push(`Recent misses / hesitations to gently re-expose: [${r.recent_misses.slice(0, 8).join(", ")}]`);
   }
+  if (r.strengths?.length) {
+    parts.push(
+      `Learner STRENGTHS (reliably correct — stretch difficulty here; use longer words, denser blends, or feature these prominently): [${r.strengths.slice(0, 20).join(", ")}]`,
+    );
+  }
+  if (r.challenges?.length) {
+    parts.push(
+      `Learner CHALLENGES (shaky — keep easy, isolate, gentle re-exposure, never combine two in one word): [${r.challenges.slice(0, 20).join(", ")}]`,
+    );
+  }
   if (r.interference_pairs?.length) {
     parts.push(
       "Swedish->English interference to counter (favour minimal pairs on the English sound):\n" +
