@@ -8,7 +8,7 @@ import { getParentSettings, setActiveLearner as setActiveLearnerFn } from "@/lib
 import { Garden } from "@/components/Garden";
 import { Settings, Sparkles, BookOpen, Zap, Flame } from "lucide-react";
 
-export const Route = createFileRoute("/_authenticated/")({
+export const Route = createFileRoute("/_authenticated/home")({
   ssr: false,
   component: KidHome,
 });
