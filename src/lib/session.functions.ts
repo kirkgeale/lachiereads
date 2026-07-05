@@ -229,6 +229,8 @@ export const startSession = createServerFn({ method: "POST" })
           targetSoundLabel: targetGpc?.sound_label ?? null,
           recentMisses,
           interferencePairs: interferenceRows ?? [],
+          strengths: [...strengthGraphemes, ...strengthHeartWords],
+          challenges: [...challengeGraphemes, ...challengeHeartWords],
         });
         const sentence: string = sentenceRes.sentence ?? "";
         if (sentence) {
