@@ -14,6 +14,53 @@ export type Database = {
   }
   public: {
     Tables: {
+      assessment_reports: {
+        Row: {
+          applied: boolean
+          created_at: string
+          estimated_level: string | null
+          events_json: Json
+          id: string
+          learner_id: string
+          probes_json: Json
+          report_json: Json | null
+          summary: string | null
+          updated_at: string
+        }
+        Insert: {
+          applied?: boolean
+          created_at?: string
+          estimated_level?: string | null
+          events_json?: Json
+          id?: string
+          learner_id: string
+          probes_json?: Json
+          report_json?: Json | null
+          summary?: string | null
+          updated_at?: string
+        }
+        Update: {
+          applied?: boolean
+          created_at?: string
+          estimated_level?: string | null
+          events_json?: Json
+          id?: string
+          learner_id?: string
+          probes_json?: Json
+          report_json?: Json | null
+          summary?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "assessment_reports_learner_id_fkey"
+            columns: ["learner_id"]
+            isOneToOne: false
+            referencedRelation: "learners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       benchmarks: {
         Row: {
           created_at: string

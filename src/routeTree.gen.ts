@@ -20,6 +20,7 @@ import { Route as ParentSessionsLearnerIdRouteImport } from './routes/parent.ses
 import { Route as ParentPhonicsLearnerIdRouteImport } from './routes/parent.phonics.$learnerId'
 import { Route as ParentInterferenceLearnerIdRouteImport } from './routes/parent.interference.$learnerId'
 import { Route as ParentBenchmarkLearnerIdRouteImport } from './routes/parent.benchmark.$learnerId'
+import { Route as ParentAssessmentLearnerIdRouteImport } from './routes/parent.assessment.$learnerId'
 
 const ParentRoute = ParentRouteImport.update({
   id: '/parent',
@@ -78,6 +79,12 @@ const ParentBenchmarkLearnerIdRoute =
     path: '/benchmark/$learnerId',
     getParentRoute: () => ParentRoute,
   } as any)
+const ParentAssessmentLearnerIdRoute =
+  ParentAssessmentLearnerIdRouteImport.update({
+    id: '/assessment/$learnerId',
+    path: '/assessment/$learnerId',
+    getParentRoute: () => ParentRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -87,6 +94,7 @@ export interface FileRoutesByFullPath {
   '/parent/learners': typeof ParentLearnersRoute
   '/session/$learnerId': typeof SessionLearnerIdRoute
   '/parent/': typeof ParentIndexRoute
+  '/parent/assessment/$learnerId': typeof ParentAssessmentLearnerIdRoute
   '/parent/benchmark/$learnerId': typeof ParentBenchmarkLearnerIdRoute
   '/parent/interference/$learnerId': typeof ParentInterferenceLearnerIdRoute
   '/parent/phonics/$learnerId': typeof ParentPhonicsLearnerIdRoute
@@ -99,6 +107,7 @@ export interface FileRoutesByTo {
   '/parent/learners': typeof ParentLearnersRoute
   '/session/$learnerId': typeof SessionLearnerIdRoute
   '/parent': typeof ParentIndexRoute
+  '/parent/assessment/$learnerId': typeof ParentAssessmentLearnerIdRoute
   '/parent/benchmark/$learnerId': typeof ParentBenchmarkLearnerIdRoute
   '/parent/interference/$learnerId': typeof ParentInterferenceLearnerIdRoute
   '/parent/phonics/$learnerId': typeof ParentPhonicsLearnerIdRoute
@@ -113,6 +122,7 @@ export interface FileRoutesById {
   '/parent/learners': typeof ParentLearnersRoute
   '/session/$learnerId': typeof SessionLearnerIdRoute
   '/parent/': typeof ParentIndexRoute
+  '/parent/assessment/$learnerId': typeof ParentAssessmentLearnerIdRoute
   '/parent/benchmark/$learnerId': typeof ParentBenchmarkLearnerIdRoute
   '/parent/interference/$learnerId': typeof ParentInterferenceLearnerIdRoute
   '/parent/phonics/$learnerId': typeof ParentPhonicsLearnerIdRoute
@@ -128,6 +138,7 @@ export interface FileRouteTypes {
     | '/parent/learners'
     | '/session/$learnerId'
     | '/parent/'
+    | '/parent/assessment/$learnerId'
     | '/parent/benchmark/$learnerId'
     | '/parent/interference/$learnerId'
     | '/parent/phonics/$learnerId'
@@ -140,6 +151,7 @@ export interface FileRouteTypes {
     | '/parent/learners'
     | '/session/$learnerId'
     | '/parent'
+    | '/parent/assessment/$learnerId'
     | '/parent/benchmark/$learnerId'
     | '/parent/interference/$learnerId'
     | '/parent/phonics/$learnerId'
@@ -153,6 +165,7 @@ export interface FileRouteTypes {
     | '/parent/learners'
     | '/session/$learnerId'
     | '/parent/'
+    | '/parent/assessment/$learnerId'
     | '/parent/benchmark/$learnerId'
     | '/parent/interference/$learnerId'
     | '/parent/phonics/$learnerId'
@@ -246,12 +259,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ParentBenchmarkLearnerIdRouteImport
       parentRoute: typeof ParentRoute
     }
+    '/parent/assessment/$learnerId': {
+      id: '/parent/assessment/$learnerId'
+      path: '/assessment/$learnerId'
+      fullPath: '/parent/assessment/$learnerId'
+      preLoaderRoute: typeof ParentAssessmentLearnerIdRouteImport
+      parentRoute: typeof ParentRoute
+    }
   }
 }
 
 interface ParentRouteChildren {
   ParentLearnersRoute: typeof ParentLearnersRoute
   ParentIndexRoute: typeof ParentIndexRoute
+  ParentAssessmentLearnerIdRoute: typeof ParentAssessmentLearnerIdRoute
   ParentBenchmarkLearnerIdRoute: typeof ParentBenchmarkLearnerIdRoute
   ParentInterferenceLearnerIdRoute: typeof ParentInterferenceLearnerIdRoute
   ParentPhonicsLearnerIdRoute: typeof ParentPhonicsLearnerIdRoute
@@ -261,6 +282,7 @@ interface ParentRouteChildren {
 const ParentRouteChildren: ParentRouteChildren = {
   ParentLearnersRoute: ParentLearnersRoute,
   ParentIndexRoute: ParentIndexRoute,
+  ParentAssessmentLearnerIdRoute: ParentAssessmentLearnerIdRoute,
   ParentBenchmarkLearnerIdRoute: ParentBenchmarkLearnerIdRoute,
   ParentInterferenceLearnerIdRoute: ParentInterferenceLearnerIdRoute,
   ParentPhonicsLearnerIdRoute: ParentPhonicsLearnerIdRoute,
@@ -280,13 +302,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

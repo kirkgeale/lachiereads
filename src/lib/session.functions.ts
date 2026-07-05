@@ -122,7 +122,8 @@ export const startSession = createServerFn({ method: "POST" })
       });
     }
 
-    // 3) Practice: AI content restricted to reached graphemes + known heart words
+    // 3) Practice: AI content restricted to reached graphemes + known heart words,
+    //    personalised with age, target GPC, recent misses, and interference.
     const { data: reachedGpcs } = await supabase
       .from("learner_gpc_status")
       .select("gpc_id, gpcs(id, grapheme)")
@@ -139,6 +140,31 @@ export const startSession = createServerFn({ method: "POST" })
       .neq("status", "not_started");
     const knownHeartWords = (knownHwRows ?? []).map((r: any) => r.heart_words.word as string);
 
+    const { data: learnerRow } = await supabase
+      .from("learners")
+      .select("birthdate")
+      .eq("id", data.learner_id)
+      .maybeSingle();
+    const ageYears = learnerRow?.birthdate
+      ? Math.floor((Date.now() - new Date(learnerRow.birthdate).getTime()) / (365.25 * 86400000))
+      : null;
+
+    const { data: interferenceRows } = await supabase
+      .from("interference_items")
+      .select("grapheme, swedish_value, english_value");
+
+    // Recent misses (last ~30 events)
+    const { data: recentEvents } = await supabase
+      .from("session_events")
+      .select("item_ref, outcome, sessions!inner(learner_id, created_at)")
+      .eq("sessions.learner_id", data.learner_id)
+      .in("outcome", ["missed", "hesitated"])
+      .order("created_at", { ascending: false, referencedTable: "sessions" as any })
+      .limit(30);
+    const recentMisses = Array.from(
+      new Set((recentEvents ?? []).map((r: any) => r.item_ref).filter(Boolean)),
+    ).slice(0, 8);
+
     const practiceCards: SessionCard[] = [];
     if (allowedGraphemes.length > 0) {
       try {
@@ -149,6 +175,11 @@ export const startSession = createServerFn({ method: "POST" })
           allowedGraphemes,
           allowedGpcIds,
           knownHeartWords,
+          ageYears,
+          targetGrapheme: targetGpc?.grapheme ?? null,
+          targetSoundLabel: targetGpc?.sound_label ?? null,
+          recentMisses,
+          interferencePairs: interferenceRows ?? [],
         });
         const words: string[] = wordListRes.words ?? [];
         for (const w of words.slice(0, 6)) {
@@ -168,6 +199,11 @@ export const startSession = createServerFn({ method: "POST" })
           allowedGraphemes,
           allowedGpcIds,
           knownHeartWords,
+          ageYears,
+          targetGrapheme: targetGpc?.grapheme ?? null,
+          targetSoundLabel: targetGpc?.sound_label ?? null,
+          recentMisses,
+          interferencePairs: interferenceRows ?? [],
         });
         const sentence: string = sentenceRes.sentence ?? "";
         if (sentence) {
@@ -357,26 +393,59 @@ export const buildFlashcardDeck = createServerFn({ method: "POST" })
     const size = data.size ?? 10;
     const t = today();
 
-    const { data: gpcs } = await supabase
+    // 1) Preferred: due items
+    const { data: dueGpcs } = await supabase
       .from("learner_gpc_status")
-      .select("gpc_id, leitner_box, next_due_date, status, gpcs(grapheme, sound_label, example_word)")
+      .select("gpc_id, leitner_box, next_due_date, status, gpcs(grapheme, sound_label, example_word, order_index)")
       .eq("learner_id", data.learner_id)
       .neq("status", "not_started")
       .lte("next_due_date", t)
       .order("next_due_date", { ascending: true })
       .limit(size);
 
-    const { data: hws } = await supabase
+    const { data: dueHws } = await supabase
       .from("learner_heart_word_status")
-      .select("heart_word_id, leitner_box, next_due_date, status, heart_words(word)")
+      .select("heart_word_id, leitner_box, next_due_date, status, heart_words(word, order_index)")
       .eq("learner_id", data.learner_id)
       .neq("status", "not_started")
       .lte("next_due_date", t)
       .order("next_due_date", { ascending: true })
       .limit(size);
+
+    let gpcs: any[] = dueGpcs ?? [];
+    let hws: any[] = dueHws ?? [];
+
+    // 2) Fallback: pick level-appropriate active items even if not due
+    if (gpcs.length + hws.length < Math.min(size, 6)) {
+      // Prioritise learning + practising, then a handful of secure for review
+      const { data: activeGpcs } = await supabase
+        .from("learner_gpc_status")
+        .select("gpc_id, leitner_box, status, gpcs(grapheme, sound_label, example_word, order_index)")
+        .eq("learner_id", data.learner_id)
+        .neq("status", "not_started")
+        .order("leitner_box", { ascending: true })
+        .limit(size * 2);
+      const { data: activeHws } = await supabase
+        .from("learner_heart_word_status")
+        .select("heart_word_id, leitner_box, status, heart_words(word, order_index)")
+        .eq("learner_id", data.learner_id)
+        .neq("status", "not_started")
+        .order("leitner_box", { ascending: true })
+        .limit(size);
+      const seenG = new Set(gpcs.map((g) => g.gpc_id));
+      const seenH = new Set(hws.map((h) => h.heart_word_id));
+      const extraG = (activeGpcs ?? []).filter((g: any) => !seenG.has(g.gpc_id));
+      const extraH = (activeHws ?? []).filter((h: any) => !seenH.has(h.heart_word_id));
+      // Weight: keep learning/practising first, add secure as light review
+      const rank = (s: string) => (s === "learning" ? 0 : s === "practising" ? 1 : 2);
+      extraG.sort((a: any, b: any) => rank(a.status) - rank(b.status));
+      extraH.sort((a: any, b: any) => rank(a.status) - rank(b.status));
+      gpcs = [...gpcs, ...extraG].slice(0, size);
+      hws = [...hws, ...extraH].slice(0, Math.max(2, Math.floor(size / 3)));
+    }
 
     const cards: SessionCard[] = [];
-    for (const g of gpcs ?? []) {
+    for (const g of gpcs) {
       cards.push({
         key: `fc-g-${g.gpc_id}`,
         item_type: "gpc",
@@ -387,7 +456,7 @@ export const buildFlashcardDeck = createServerFn({ method: "POST" })
         stage: "warmup",
       });
     }
-    for (const h of hws ?? []) {
+    for (const h of hws) {
       cards.push({
         key: `fc-h-${h.heart_word_id}`,
         item_type: "heart_word",
@@ -396,7 +465,6 @@ export const buildFlashcardDeck = createServerFn({ method: "POST" })
         stage: "warmup",
       });
     }
-    // Shuffle + trim
     return cards.sort(() => Math.random() - 0.5).slice(0, size);
   });
 
