@@ -11,7 +11,6 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as ParentRouteImport } from './routes/parent'
 import { Route as LearnerRouteImport } from './routes/learner'
-import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ParentIndexRouteImport } from './routes/parent.index'
 import { Route as SessionLearnerIdRouteImport } from './routes/session.$learnerId'
@@ -30,11 +29,6 @@ const ParentRoute = ParentRouteImport.update({
 const LearnerRoute = LearnerRouteImport.update({
   id: '/learner',
   path: '/learner',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthRoute = AuthRouteImport.update({
-  id: '/auth',
-  path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -87,7 +81,6 @@ const ParentBenchmarkLearnerIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/auth': typeof AuthRoute
   '/learner': typeof LearnerRoute
   '/parent': typeof ParentRouteWithChildren
   '/flashcards/$learnerId': typeof FlashcardsLearnerIdRoute
@@ -101,7 +94,6 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/auth': typeof AuthRoute
   '/learner': typeof LearnerRoute
   '/flashcards/$learnerId': typeof FlashcardsLearnerIdRoute
   '/parent/learners': typeof ParentLearnersRoute
@@ -115,7 +107,6 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/auth': typeof AuthRoute
   '/learner': typeof LearnerRoute
   '/parent': typeof ParentRouteWithChildren
   '/flashcards/$learnerId': typeof FlashcardsLearnerIdRoute
@@ -131,7 +122,6 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/auth'
     | '/learner'
     | '/parent'
     | '/flashcards/$learnerId'
@@ -145,7 +135,6 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/auth'
     | '/learner'
     | '/flashcards/$learnerId'
     | '/parent/learners'
@@ -158,7 +147,6 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
-    | '/auth'
     | '/learner'
     | '/parent'
     | '/flashcards/$learnerId'
@@ -173,7 +161,6 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AuthRoute: typeof AuthRoute
   LearnerRoute: typeof LearnerRoute
   ParentRoute: typeof ParentRouteWithChildren
   FlashcardsLearnerIdRoute: typeof FlashcardsLearnerIdRoute
@@ -194,13 +181,6 @@ declare module '@tanstack/react-router' {
       path: '/learner'
       fullPath: '/learner'
       preLoaderRoute: typeof LearnerRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -292,7 +272,6 @@ const ParentRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AuthRoute: AuthRoute,
   LearnerRoute: LearnerRoute,
   ParentRoute: ParentRouteWithChildren,
   FlashcardsLearnerIdRoute: FlashcardsLearnerIdRoute,
