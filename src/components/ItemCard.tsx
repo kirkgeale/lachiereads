@@ -7,18 +7,30 @@ interface Props {
 }
 
 export function ItemCard({ card, stageLabel }: Props) {
+  const isSentence = card.meta?.kind === "sentence";
   const isLong = card.display.length > 12;
-  const displaySize = card.meta?.kind === "sentence" ? "text-4xl md:text-5xl" : isLong ? "text-5xl md:text-6xl" : "text-8xl md:text-9xl";
+  const displaySize = isSentence ? "text-4xl md:text-5xl" : isLong ? "text-5xl md:text-6xl" : "text-8xl md:text-9xl";
+  const upper = card.display.toUpperCase();
+  const lower = card.display.toLowerCase();
+  const showPair = !isSentence && upper !== lower;
+  const sentenceDisplay = isSentence
+    ? card.display.replace(/\b([a-z])/g, (m) => m.toUpperCase())
+    : card.display;
 
   return (
     <div className="w-full max-w-2xl mx-auto flex flex-col items-center gap-8">
       {stageLabel && (
         <span className="text-xs uppercase tracking-widest text-muted-foreground">{stageLabel}</span>
       )}
-      <div className="w-full min-h-[16rem] flex items-center justify-center rounded-[2rem] bg-card border border-border/60 shadow-sm px-6 py-10">
+      <div className="w-full min-h-[16rem] flex flex-col items-center justify-center gap-3 rounded-[2rem] bg-card border border-border/60 shadow-sm px-6 py-10">
         <div className={cn("font-display font-semibold text-center text-primary leading-tight", displaySize)}>
-          {card.display}
+          {isSentence ? sentenceDisplay.toUpperCase() : upper}
         </div>
+        {showPair && (
+          <div className="text-2xl md:text-3xl font-display text-muted-foreground/70 leading-none tracking-wide">
+            {lower}
+          </div>
+        )}
       </div>
       {card.sound_label && (
         <div className="text-center">
