@@ -127,6 +127,15 @@ function RootComponent() {
   const router = useRouter();
 
   useEffect(() => {
+    // Auto sign-in anonymously so the app just works with no login screen.
+    (async () => {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) {
+        await supabase.auth.signInAnonymously();
+        router.invalidate();
+        queryClient.invalidateQueries();
+      }
+    })();
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
       if (event !== "SIGNED_IN" && event !== "SIGNED_OUT" && event !== "USER_UPDATED") return;
       router.invalidate();
