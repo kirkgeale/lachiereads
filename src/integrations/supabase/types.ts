@@ -14,16 +14,514 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      benchmarks: {
+        Row: {
+          created_at: string
+          date: string
+          id: string
+          learner_id: string
+          notes: string | null
+          scores_json: Json
+        }
+        Insert: {
+          created_at?: string
+          date?: string
+          id?: string
+          learner_id: string
+          notes?: string | null
+          scores_json?: Json
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: string
+          learner_id?: string
+          notes?: string | null
+          scores_json?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "benchmarks_learner_id_fkey"
+            columns: ["learner_id"]
+            isOneToOne: false
+            referencedRelation: "learners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      generated_content: {
+        Row: {
+          allowed_gpc_ids: string[]
+          cache_key: string
+          content_json: Json
+          created_at: string
+          id: string
+          learner_id: string | null
+          type: Database["public"]["Enums"]["content_type"]
+        }
+        Insert: {
+          allowed_gpc_ids?: string[]
+          cache_key: string
+          content_json: Json
+          created_at?: string
+          id?: string
+          learner_id?: string | null
+          type: Database["public"]["Enums"]["content_type"]
+        }
+        Update: {
+          allowed_gpc_ids?: string[]
+          cache_key?: string
+          content_json?: Json
+          created_at?: string
+          id?: string
+          learner_id?: string | null
+          type?: Database["public"]["Enums"]["content_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generated_content_learner_id_fkey"
+            columns: ["learner_id"]
+            isOneToOne: false
+            referencedRelation: "learners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      gpcs: {
+        Row: {
+          example_word: string
+          grapheme: string
+          id: string
+          order_index: number
+          phase: number
+          sound_label: string
+          type: Database["public"]["Enums"]["gpc_type"]
+        }
+        Insert: {
+          example_word: string
+          grapheme: string
+          id?: string
+          order_index: number
+          phase: number
+          sound_label: string
+          type: Database["public"]["Enums"]["gpc_type"]
+        }
+        Update: {
+          example_word?: string
+          grapheme?: string
+          id?: string
+          order_index?: number
+          phase?: number
+          sound_label?: string
+          type?: Database["public"]["Enums"]["gpc_type"]
+        }
+        Relationships: []
+      }
+      heart_words: {
+        Row: {
+          id: string
+          order_index: number
+          word: string
+        }
+        Insert: {
+          id?: string
+          order_index: number
+          word: string
+        }
+        Update: {
+          id?: string
+          order_index?: number
+          word?: string
+        }
+        Relationships: []
+      }
+      interference_items: {
+        Row: {
+          english_value: string
+          example_word: string
+          grapheme: string
+          id: string
+          note: string | null
+          swedish_value: string
+        }
+        Insert: {
+          english_value: string
+          example_word: string
+          grapheme: string
+          id?: string
+          note?: string | null
+          swedish_value: string
+        }
+        Update: {
+          english_value?: string
+          example_word?: string
+          grapheme?: string
+          id?: string
+          note?: string | null
+          swedish_value?: string
+        }
+        Relationships: []
+      }
+      learner_gpc_status: {
+        Row: {
+          correct_streak: number
+          gpc_id: string
+          id: string
+          last_seen: string | null
+          learner_id: string
+          leitner_box: number
+          next_due_date: string
+          status: Database["public"]["Enums"]["item_status"]
+          updated_at: string
+        }
+        Insert: {
+          correct_streak?: number
+          gpc_id: string
+          id?: string
+          last_seen?: string | null
+          learner_id: string
+          leitner_box?: number
+          next_due_date?: string
+          status?: Database["public"]["Enums"]["item_status"]
+          updated_at?: string
+        }
+        Update: {
+          correct_streak?: number
+          gpc_id?: string
+          id?: string
+          last_seen?: string | null
+          learner_id?: string
+          leitner_box?: number
+          next_due_date?: string
+          status?: Database["public"]["Enums"]["item_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learner_gpc_status_gpc_id_fkey"
+            columns: ["gpc_id"]
+            isOneToOne: false
+            referencedRelation: "gpcs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learner_gpc_status_learner_id_fkey"
+            columns: ["learner_id"]
+            isOneToOne: false
+            referencedRelation: "learners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      learner_heart_word_status: {
+        Row: {
+          correct_streak: number
+          heart_word_id: string
+          id: string
+          last_seen: string | null
+          learner_id: string
+          leitner_box: number
+          next_due_date: string
+          status: Database["public"]["Enums"]["item_status"]
+          updated_at: string
+        }
+        Insert: {
+          correct_streak?: number
+          heart_word_id: string
+          id?: string
+          last_seen?: string | null
+          learner_id: string
+          leitner_box?: number
+          next_due_date?: string
+          status?: Database["public"]["Enums"]["item_status"]
+          updated_at?: string
+        }
+        Update: {
+          correct_streak?: number
+          heart_word_id?: string
+          id?: string
+          last_seen?: string | null
+          learner_id?: string
+          leitner_box?: number
+          next_due_date?: string
+          status?: Database["public"]["Enums"]["item_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learner_heart_word_status_heart_word_id_fkey"
+            columns: ["heart_word_id"]
+            isOneToOne: false
+            referencedRelation: "heart_words"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learner_heart_word_status_learner_id_fkey"
+            columns: ["learner_id"]
+            isOneToOne: false
+            referencedRelation: "learners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      learner_interference_status: {
+        Row: {
+          id: string
+          interference_id: string
+          learner_id: string
+          status: Database["public"]["Enums"]["interference_status"]
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          interference_id: string
+          learner_id: string
+          status?: Database["public"]["Enums"]["interference_status"]
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          interference_id?: string
+          learner_id?: string
+          status?: Database["public"]["Enums"]["interference_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learner_interference_status_interference_id_fkey"
+            columns: ["interference_id"]
+            isOneToOne: false
+            referencedRelation: "interference_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learner_interference_status_learner_id_fkey"
+            columns: ["learner_id"]
+            isOneToOne: false
+            referencedRelation: "learners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      learners: {
+        Row: {
+          birthdate: string | null
+          created_at: string
+          garden_theme: string
+          id: string
+          name: string
+          notes: string | null
+          parent_id: string
+          updated_at: string
+        }
+        Insert: {
+          birthdate?: string | null
+          created_at?: string
+          garden_theme?: string
+          id?: string
+          name: string
+          notes?: string | null
+          parent_id: string
+          updated_at?: string
+        }
+        Update: {
+          birthdate?: string | null
+          created_at?: string
+          garden_theme?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          parent_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      parent_settings: {
+        Row: {
+          active_learner_id: string | null
+          created_at: string
+          dyslexia_font: boolean
+          parent_id: string
+          pin_hash: string | null
+          updated_at: string
+        }
+        Insert: {
+          active_learner_id?: string | null
+          created_at?: string
+          dyslexia_font?: boolean
+          parent_id: string
+          pin_hash?: string | null
+          updated_at?: string
+        }
+        Update: {
+          active_learner_id?: string | null
+          created_at?: string
+          dyslexia_font?: boolean
+          parent_id?: string
+          pin_hash?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      rewards: {
+        Row: {
+          badges_json: Json
+          current_streak_days: number
+          last_session_date: string | null
+          learner_id: string
+          longest_streak: number
+          stars: number
+          updated_at: string
+        }
+        Insert: {
+          badges_json?: Json
+          current_streak_days?: number
+          last_session_date?: string | null
+          learner_id: string
+          longest_streak?: number
+          stars?: number
+          updated_at?: string
+        }
+        Update: {
+          badges_json?: Json
+          current_streak_days?: number
+          last_session_date?: string | null
+          learner_id?: string
+          longest_streak?: number
+          stars?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rewards_learner_id_fkey"
+            columns: ["learner_id"]
+            isOneToOne: true
+            referencedRelation: "learners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      session_events: {
+        Row: {
+          created_at: string
+          id: string
+          item_ref: string
+          item_type: Database["public"]["Enums"]["session_item_type"]
+          outcome: Database["public"]["Enums"]["outcome"]
+          session_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          item_ref: string
+          item_type: Database["public"]["Enums"]["session_item_type"]
+          outcome: Database["public"]["Enums"]["outcome"]
+          session_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          item_ref?: string
+          item_type?: Database["public"]["Enums"]["session_item_type"]
+          outcome?: Database["public"]["Enums"]["outcome"]
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_events_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sessions: {
+        Row: {
+          created_at: string
+          date: string
+          duration_seconds: number
+          id: string
+          learner_id: string
+          parent_notes: string | null
+          plan_json: Json
+        }
+        Insert: {
+          created_at?: string
+          date?: string
+          duration_seconds?: number
+          id?: string
+          learner_id: string
+          parent_notes?: string | null
+          plan_json?: Json
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          duration_seconds?: number
+          id?: string
+          learner_id?: string
+          parent_notes?: string | null
+          plan_json?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sessions_learner_id_fkey"
+            columns: ["learner_id"]
+            isOneToOne: false
+            referencedRelation: "learners"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      owns_learner: { Args: { _learner_id: string }; Returns: boolean }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "parent"
+      content_type:
+        | "word_list"
+        | "sentence"
+        | "story"
+        | "game_words"
+        | "pseudowords"
+      gpc_type: "single" | "digraph" | "split_digraph" | "vowel_team"
+      interference_status: "still_confuses" | "resolving" | "secure"
+      item_status: "not_started" | "learning" | "practising" | "secure"
+      outcome: "got_it" | "hesitated" | "missed"
+      session_item_type: "gpc" | "heart_word" | "decodable_word"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +648,20 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["parent"],
+      content_type: [
+        "word_list",
+        "sentence",
+        "story",
+        "game_words",
+        "pseudowords",
+      ],
+      gpc_type: ["single", "digraph", "split_digraph", "vowel_team"],
+      interference_status: ["still_confuses", "resolving", "secure"],
+      item_status: ["not_started", "learning", "practising", "secure"],
+      outcome: ["got_it", "hesitated", "missed"],
+      session_item_type: ["gpc", "heart_word", "decodable_word"],
+    },
   },
 } as const
