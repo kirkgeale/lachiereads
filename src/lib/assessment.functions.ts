@@ -75,7 +75,7 @@ export const startAssessment = createServerFn({ method: "POST" })
 
     const { data: row, error: insErr } = await supabase
       .from("assessment_reports")
-      .insert({ learner_id: data.learner_id, probes_json: probes })
+      .insert({ learner_id: data.learner_id, probes_json: probes as any })
       .select("id")
       .single();
     if (insErr || !row) throw new Error(insErr?.message ?? "Failed to create assessment");
@@ -126,10 +126,14 @@ export const finalizeAssessment = createServerFn({ method: "POST" })
     const boxByStatus: Record<string, number> = { not_started: 1, learning: 1, practising: 3, secure: 5 };
     const today = new Date().toISOString().slice(0, 10);
 
+    type AllowedStatus = "not_started" | "learning" | "practising" | "secure";
+    const allowed: AllowedStatus[] = ["not_started", "learning", "practising", "secure"];
+    const coerce = (s: string): AllowedStatus => (allowed.includes(s as AllowedStatus) ? (s as AllowedStatus) : "learning");
+
     for (const u of gpcUpdates) {
       const id = gpcByGrapheme.get(u.grapheme);
       if (!id) continue;
-      const status = ["not_started", "learning", "practising", "secure"].includes(u.status) ? u.status : "learning";
+      const status = coerce(u.status);
       await supabase
         .from("learner_gpc_status")
         .update({
@@ -144,7 +148,7 @@ export const finalizeAssessment = createServerFn({ method: "POST" })
     for (const u of hwUpdates) {
       const id = hwByWord.get(u.word.toLowerCase());
       if (!id) continue;
-      const status = ["not_started", "learning", "practising", "secure"].includes(u.status) ? u.status : "learning";
+      const status = coerce(u.status);
       await supabase
         .from("learner_heart_word_status")
         .update({
