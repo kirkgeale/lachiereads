@@ -9,38 +9,180 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as ParentRouteImport } from './routes/parent'
+import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ParentIndexRouteImport } from './routes/parent.index'
+import { Route as SessionLearnerIdRouteImport } from './routes/session.$learnerId'
+import { Route as ParentLearnersRouteImport } from './routes/parent.learners'
+import { Route as FlashcardsLearnerIdRouteImport } from './routes/flashcards.$learnerId'
+import { Route as ParentSessionsLearnerIdRouteImport } from './routes/parent.sessions.$learnerId'
+import { Route as ParentPhonicsLearnerIdRouteImport } from './routes/parent.phonics.$learnerId'
+import { Route as ParentInterferenceLearnerIdRouteImport } from './routes/parent.interference.$learnerId'
+import { Route as ParentBenchmarkLearnerIdRouteImport } from './routes/parent.benchmark.$learnerId'
 
+const ParentRoute = ParentRouteImport.update({
+  id: '/parent',
+  path: '/parent',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ParentIndexRoute = ParentIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ParentRoute,
+} as any)
+const SessionLearnerIdRoute = SessionLearnerIdRouteImport.update({
+  id: '/session/$learnerId',
+  path: '/session/$learnerId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ParentLearnersRoute = ParentLearnersRouteImport.update({
+  id: '/learners',
+  path: '/learners',
+  getParentRoute: () => ParentRoute,
+} as any)
+const FlashcardsLearnerIdRoute = FlashcardsLearnerIdRouteImport.update({
+  id: '/flashcards/$learnerId',
+  path: '/flashcards/$learnerId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ParentSessionsLearnerIdRoute = ParentSessionsLearnerIdRouteImport.update({
+  id: '/sessions/$learnerId',
+  path: '/sessions/$learnerId',
+  getParentRoute: () => ParentRoute,
+} as any)
+const ParentPhonicsLearnerIdRoute = ParentPhonicsLearnerIdRouteImport.update({
+  id: '/phonics/$learnerId',
+  path: '/phonics/$learnerId',
+  getParentRoute: () => ParentRoute,
+} as any)
+const ParentInterferenceLearnerIdRoute =
+  ParentInterferenceLearnerIdRouteImport.update({
+    id: '/interference/$learnerId',
+    path: '/interference/$learnerId',
+    getParentRoute: () => ParentRoute,
+  } as any)
+const ParentBenchmarkLearnerIdRoute =
+  ParentBenchmarkLearnerIdRouteImport.update({
+    id: '/benchmark/$learnerId',
+    path: '/benchmark/$learnerId',
+    getParentRoute: () => ParentRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/parent': typeof ParentRouteWithChildren
+  '/flashcards/$learnerId': typeof FlashcardsLearnerIdRoute
+  '/parent/learners': typeof ParentLearnersRoute
+  '/session/$learnerId': typeof SessionLearnerIdRoute
+  '/parent/': typeof ParentIndexRoute
+  '/parent/benchmark/$learnerId': typeof ParentBenchmarkLearnerIdRoute
+  '/parent/interference/$learnerId': typeof ParentInterferenceLearnerIdRoute
+  '/parent/phonics/$learnerId': typeof ParentPhonicsLearnerIdRoute
+  '/parent/sessions/$learnerId': typeof ParentSessionsLearnerIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/flashcards/$learnerId': typeof FlashcardsLearnerIdRoute
+  '/parent/learners': typeof ParentLearnersRoute
+  '/session/$learnerId': typeof SessionLearnerIdRoute
+  '/parent': typeof ParentIndexRoute
+  '/parent/benchmark/$learnerId': typeof ParentBenchmarkLearnerIdRoute
+  '/parent/interference/$learnerId': typeof ParentInterferenceLearnerIdRoute
+  '/parent/phonics/$learnerId': typeof ParentPhonicsLearnerIdRoute
+  '/parent/sessions/$learnerId': typeof ParentSessionsLearnerIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
+  '/parent': typeof ParentRouteWithChildren
+  '/flashcards/$learnerId': typeof FlashcardsLearnerIdRoute
+  '/parent/learners': typeof ParentLearnersRoute
+  '/session/$learnerId': typeof SessionLearnerIdRoute
+  '/parent/': typeof ParentIndexRoute
+  '/parent/benchmark/$learnerId': typeof ParentBenchmarkLearnerIdRoute
+  '/parent/interference/$learnerId': typeof ParentInterferenceLearnerIdRoute
+  '/parent/phonics/$learnerId': typeof ParentPhonicsLearnerIdRoute
+  '/parent/sessions/$learnerId': typeof ParentSessionsLearnerIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/'
+  fullPaths:
+    | '/'
+    | '/auth'
+    | '/parent'
+    | '/flashcards/$learnerId'
+    | '/parent/learners'
+    | '/session/$learnerId'
+    | '/parent/'
+    | '/parent/benchmark/$learnerId'
+    | '/parent/interference/$learnerId'
+    | '/parent/phonics/$learnerId'
+    | '/parent/sessions/$learnerId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/'
-  id: '__root__' | '/'
+  to:
+    | '/'
+    | '/auth'
+    | '/flashcards/$learnerId'
+    | '/parent/learners'
+    | '/session/$learnerId'
+    | '/parent'
+    | '/parent/benchmark/$learnerId'
+    | '/parent/interference/$learnerId'
+    | '/parent/phonics/$learnerId'
+    | '/parent/sessions/$learnerId'
+  id:
+    | '__root__'
+    | '/'
+    | '/auth'
+    | '/parent'
+    | '/flashcards/$learnerId'
+    | '/parent/learners'
+    | '/session/$learnerId'
+    | '/parent/'
+    | '/parent/benchmark/$learnerId'
+    | '/parent/interference/$learnerId'
+    | '/parent/phonics/$learnerId'
+    | '/parent/sessions/$learnerId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthRoute: typeof AuthRoute
+  ParentRoute: typeof ParentRouteWithChildren
+  FlashcardsLearnerIdRoute: typeof FlashcardsLearnerIdRoute
+  SessionLearnerIdRoute: typeof SessionLearnerIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/parent': {
+      id: '/parent'
+      path: '/parent'
+      fullPath: '/parent'
+      preLoaderRoute: typeof ParentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -48,11 +190,92 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/parent/': {
+      id: '/parent/'
+      path: '/'
+      fullPath: '/parent/'
+      preLoaderRoute: typeof ParentIndexRouteImport
+      parentRoute: typeof ParentRoute
+    }
+    '/session/$learnerId': {
+      id: '/session/$learnerId'
+      path: '/session/$learnerId'
+      fullPath: '/session/$learnerId'
+      preLoaderRoute: typeof SessionLearnerIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/parent/learners': {
+      id: '/parent/learners'
+      path: '/learners'
+      fullPath: '/parent/learners'
+      preLoaderRoute: typeof ParentLearnersRouteImport
+      parentRoute: typeof ParentRoute
+    }
+    '/flashcards/$learnerId': {
+      id: '/flashcards/$learnerId'
+      path: '/flashcards/$learnerId'
+      fullPath: '/flashcards/$learnerId'
+      preLoaderRoute: typeof FlashcardsLearnerIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/parent/sessions/$learnerId': {
+      id: '/parent/sessions/$learnerId'
+      path: '/sessions/$learnerId'
+      fullPath: '/parent/sessions/$learnerId'
+      preLoaderRoute: typeof ParentSessionsLearnerIdRouteImport
+      parentRoute: typeof ParentRoute
+    }
+    '/parent/phonics/$learnerId': {
+      id: '/parent/phonics/$learnerId'
+      path: '/phonics/$learnerId'
+      fullPath: '/parent/phonics/$learnerId'
+      preLoaderRoute: typeof ParentPhonicsLearnerIdRouteImport
+      parentRoute: typeof ParentRoute
+    }
+    '/parent/interference/$learnerId': {
+      id: '/parent/interference/$learnerId'
+      path: '/interference/$learnerId'
+      fullPath: '/parent/interference/$learnerId'
+      preLoaderRoute: typeof ParentInterferenceLearnerIdRouteImport
+      parentRoute: typeof ParentRoute
+    }
+    '/parent/benchmark/$learnerId': {
+      id: '/parent/benchmark/$learnerId'
+      path: '/benchmark/$learnerId'
+      fullPath: '/parent/benchmark/$learnerId'
+      preLoaderRoute: typeof ParentBenchmarkLearnerIdRouteImport
+      parentRoute: typeof ParentRoute
+    }
   }
 }
 
+interface ParentRouteChildren {
+  ParentLearnersRoute: typeof ParentLearnersRoute
+  ParentIndexRoute: typeof ParentIndexRoute
+  ParentBenchmarkLearnerIdRoute: typeof ParentBenchmarkLearnerIdRoute
+  ParentInterferenceLearnerIdRoute: typeof ParentInterferenceLearnerIdRoute
+  ParentPhonicsLearnerIdRoute: typeof ParentPhonicsLearnerIdRoute
+  ParentSessionsLearnerIdRoute: typeof ParentSessionsLearnerIdRoute
+}
+
+const ParentRouteChildren: ParentRouteChildren = {
+  ParentLearnersRoute: ParentLearnersRoute,
+  ParentIndexRoute: ParentIndexRoute,
+  ParentBenchmarkLearnerIdRoute: ParentBenchmarkLearnerIdRoute,
+  ParentInterferenceLearnerIdRoute: ParentInterferenceLearnerIdRoute,
+  ParentPhonicsLearnerIdRoute: ParentPhonicsLearnerIdRoute,
+  ParentSessionsLearnerIdRoute: ParentSessionsLearnerIdRoute,
+}
+
+const ParentRouteWithChildren =
+  ParentRoute._addFileChildren(ParentRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthRoute: AuthRoute,
+  ParentRoute: ParentRouteWithChildren,
+  FlashcardsLearnerIdRoute: FlashcardsLearnerIdRoute,
+  SessionLearnerIdRoute: SessionLearnerIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
