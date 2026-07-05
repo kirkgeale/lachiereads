@@ -75,33 +75,103 @@ function AssessmentPage() {
 
   // Report view
   if (report) {
+    const plainSummary = report.plain_summary ?? report.summary;
+    const canDo = report.what_they_can_do ?? report.strengths ?? [];
+    const workingOn = report.working_on ?? report.focus_areas ?? [];
+    const notYet = report.not_yet ?? [];
+    const bench = report.age_benchmark;
+    const actions = report.parent_actions_this_week ?? report.next_steps ?? [];
     return (
       <div className="space-y-4">
-        <Header title="Assessment complete" onBack={() => setReport(null)} backLabel="Assessment home" />
-        <Card title={report.estimated_level || "Reading level"}>
-          <p className="text-sm text-foreground/90 whitespace-pre-wrap">{report.summary}</p>
-        </Card>
-        {report.strengths?.length ? (
-          <Card title="Strengths">
-            <ul className="list-disc pl-5 space-y-1 text-sm">
-              {report.strengths.map((s: string, i: number) => <li key={i}>{s}</li>)}
+        <Header title="Assessment report" onBack={() => setReport(null)} backLabel="Assessment home" />
+        {plainSummary && (
+          <Card title="How the reading is going">
+            <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">{plainSummary}</p>
+          </Card>
+        )}
+        {bench && (
+          <Card title="Compared to what's typical for age">
+            {bench.typical_for_age && (
+              <div className="mb-3">
+                <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Typical for age</div>
+                <p className="text-sm text-foreground/90">{bench.typical_for_age}</p>
+              </div>
+            )}
+            {bench.where_learner_is && (
+              <div className="mb-3">
+                <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Where {" "}
+                  they are right now</div>
+                <p className="text-sm text-foreground/90">{bench.where_learner_is}</p>
+              </div>
+            )}
+            {bench.gap_note && (
+              <p className="text-xs text-muted-foreground italic">{bench.gap_note}</p>
+            )}
+            <div className="mt-4 pt-3 border-t border-border/60 text-xs text-muted-foreground space-y-1">
+              <div>Benchmark references (age-related standards):</div>
+              <ul className="list-disc pl-5 space-y-0.5">
+                <li>
+                  <a
+                    href="https://www.gov.uk/government/collections/phonics-screening-check-materials"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline hover:text-foreground"
+                  >
+                    UK Phonics Screening Check (Year 1, age 5–6)
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="https://www.gov.uk/government/publications/national-curriculum-in-england-english-programmes-of-study"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline hover:text-foreground"
+                  >
+                    UK National Curriculum — English Years 1–2
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="https://www.readingrockets.org/reading-101/reading-101-learning-modules"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="underline hover:text-foreground"
+                  >
+                    Reading Rockets — typical reading milestones by age
+                  </a>
+                </li>
+              </ul>
+            </div>
+          </Card>
+        )}
+        {canDo.length > 0 && (
+          <Card title="What they can do">
+            <ul className="list-disc pl-5 space-y-1.5 text-sm text-foreground/90">
+              {canDo.map((s: string, i: number) => <li key={i}>{s}</li>)}
             </ul>
           </Card>
-        ) : null}
-        {report.focus_areas?.length ? (
-          <Card title="Focus areas">
-            <ul className="list-disc pl-5 space-y-1 text-sm">
-              {report.focus_areas.map((s: string, i: number) => <li key={i}>{s}</li>)}
+        )}
+        {workingOn.length > 0 && (
+          <Card title="What we're working on">
+            <ul className="list-disc pl-5 space-y-1.5 text-sm text-foreground/90">
+              {workingOn.map((s: string, i: number) => <li key={i}>{s}</li>)}
             </ul>
           </Card>
-        ) : null}
-        {report.next_steps?.length ? (
-          <Card title="Next steps this week">
-            <ul className="list-disc pl-5 space-y-1 text-sm">
-              {report.next_steps.map((s: string, i: number) => <li key={i}>{s}</li>)}
+        )}
+        {notYet.length > 0 && (
+          <Card title="Not looked at yet">
+            <ul className="list-disc pl-5 space-y-1.5 text-sm text-foreground/90">
+              {notYet.map((s: string, i: number) => <li key={i}>{s}</li>)}
             </ul>
           </Card>
-        ) : null}
+        )}
+        {actions.length > 0 && (
+          <Card title="What to do this week">
+            <ul className="list-disc pl-5 space-y-1.5 text-sm text-foreground/90">
+              {actions.map((s: string, i: number) => <li key={i}>{s}</li>)}
+            </ul>
+          </Card>
+        )}
         <div className="flex gap-2">
           <button
             onClick={() => setReport(null)}
