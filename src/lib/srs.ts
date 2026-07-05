@@ -26,7 +26,6 @@ function addDaysISO(days: number): string {
 export function deriveStatus(box: number, streak: number): ItemStatus {
   if (box <= 2) return "learning";
   if (box === 3) return "practising";
-  // 4-5 with recent got_it => secure
   return streak > 0 ? "secure" : "practising";
 }
 
@@ -34,12 +33,19 @@ export function applyOutcome({ box, streak, outcome }: SrsInput): SrsResult {
   let newBox = box;
   let newStreak = streak;
   if (outcome === "got_it") {
+    // Clean first-try — promote and grow streak
     newBox = Math.min(5, box + 1);
     newStreak = streak + 1;
-  } else if (outcome === "hesitated") {
+  } else if (outcome === "self_corrected") {
+    // Retrieval eventually succeeded unaided — grow streak, promote only once cushion built
+    newStreak = streak + 1;
+    newBox = newStreak >= 3 ? Math.min(5, box + 1) : box;
+  } else if (outcome === "prompted") {
+    // Needed a cue — hold in place, reset streak, but do not demote
     newBox = box;
     newStreak = 0;
   } else {
+    // missed — demote to learning
     newBox = 1;
     newStreak = 0;
   }

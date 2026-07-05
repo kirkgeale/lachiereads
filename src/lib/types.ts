@@ -1,9 +1,20 @@
-export type Outcome = "got_it" | "hesitated" | "missed";
+export type Outcome = "got_it" | "self_corrected" | "prompted" | "missed";
 export type ItemStatus = "not_started" | "learning" | "practising" | "secure";
 export type InterferenceStatus = "still_confuses" | "resolving" | "secure";
 export type SessionItemType = "gpc" | "heart_word" | "decodable_word";
 export type ContentType = "word_list" | "sentence" | "story" | "game_words" | "pseudowords";
 export type GpcType = "single" | "digraph" | "split_digraph" | "vowel_team";
+
+export type SessionStage =
+  | "warmup"
+  | "target"
+  | "blend"
+  | "practice"
+  | "sentence"
+  | "story"
+  | "interference"
+  | "game"
+  | "wrapup";
 
 export interface Gpc {
   id: string;
@@ -30,6 +41,11 @@ export interface InterferenceItem {
   example_word: string;
 }
 
+export interface StageIntro {
+  title: string;
+  guidance: string; // one-line parent prompt: what to model / how to lead
+}
+
 export interface SessionCard {
   key: string;
   item_type: SessionItemType;
@@ -38,7 +54,8 @@ export interface SessionCard {
   sound_label?: string;
   example_word?: string;
   interference?: InterferenceItem | null;
-  stage: "warmup" | "target" | "practice" | "game" | "wrapup";
+  stage: SessionStage;
+  stage_intro?: StageIntro; // parent-facing guidance shown on the first card of a stage
   meta?: Record<string, string | number | boolean | null>;
 }
 
