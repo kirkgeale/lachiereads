@@ -203,6 +203,8 @@ export const startSession = createServerFn({ method: "POST" })
           targetSoundLabel: targetGpc?.sound_label ?? null,
           recentMisses,
           interferencePairs: interferenceRows ?? [],
+          strengths: [...strengthGraphemes, ...strengthHeartWords],
+          challenges: [...challengeGraphemes, ...challengeHeartWords],
         });
         const words: string[] = wordListRes.words ?? [];
         for (const w of words.slice(0, 6)) {
