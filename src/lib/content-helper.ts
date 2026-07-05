@@ -80,6 +80,8 @@ export async function generateContentInternal(a: GenArgs): Promise<any> {
         target_sound_label: a.targetSoundLabel ?? null,
         recent_misses: a.recentMisses ?? [],
         interference_pairs: a.interferencePairs ?? [],
+        strengths: a.strengths ?? [],
+        challenges: a.challenges ?? [],
       },
     });
     if (error) throw error;
