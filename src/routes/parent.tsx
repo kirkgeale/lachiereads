@@ -6,7 +6,7 @@ import { listLearners } from "@/lib/learners.functions";
 import { ChevronLeft, Users, Map, AlertTriangle, LineChart, Award, Type } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-const UNLOCK_KEY = "rg-parent-unlocked";
+
 
 export const Route = createFileRoute("/parent")({
   ssr: false,
