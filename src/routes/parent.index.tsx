@@ -5,6 +5,8 @@ import { listLearners } from "@/lib/learners.functions";
 import { getParentSettings } from "@/lib/parent.functions";
 import { getProgressTimeline } from "@/lib/dashboard.functions";
 import { LineChart as LC, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar, Legend } from "recharts";
+import { ClipboardCheck } from "lucide-react";
+
 
 export const Route = createFileRoute("/parent/")({
   ssr: false,
@@ -51,11 +53,25 @@ function ParentHome() {
 
   return (
     <div className="space-y-6">
+      <Link
+        to="/parent/assessment/$learnerId"
+        params={{ learnerId: activeId }}
+        className="flex items-center gap-4 rounded-3xl bg-primary text-primary-foreground p-5 shadow-sm hover:opacity-95 transition"
+      >
+        <ClipboardCheck className="w-8 h-8 flex-shrink-0" />
+        <div className="flex-1">
+          <div className="font-display text-lg">Run reading assessment</div>
+          <div className="text-sm opacity-90">AI-guided probes to pinpoint level and update practice plan.</div>
+        </div>
+        <span className="text-2xl">→</span>
+      </Link>
+
       <div className="grid grid-cols-3 gap-3">
         <StatCard label="Secure sounds" value={secure} tone="primary" />
         <StatCard label="Practising" value={practising} tone="accent" />
         <StatCard label="Learning" value={learning} tone="muted" />
       </div>
+
 
       <Card title="Session outcomes over time">
         {chartData.length === 0 ? (
