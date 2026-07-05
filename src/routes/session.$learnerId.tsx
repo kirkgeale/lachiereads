@@ -21,7 +21,11 @@ export const Route = createFileRoute("/session/$learnerId")({
 const STAGE_LABELS: Record<string, string> = {
   warmup: "Warm-up",
   target: "New sound",
-  practice: "Practice",
+  blend: "Blend ladder",
+  practice: "Word reading",
+  sentence: "Sentence",
+  story: "Mini story",
+  interference: "Sound check",
   game: "Quick game",
   wrapup: "Wrap-up",
 };

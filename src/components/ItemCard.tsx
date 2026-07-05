@@ -18,9 +18,18 @@ export function ItemCard({ card, stageLabel }: Props) {
     : card.display;
 
   return (
-    <div className="w-full max-w-2xl mx-auto flex flex-col items-center gap-8">
-      {stageLabel && (
-        <span className="text-xs uppercase tracking-widest text-muted-foreground">{stageLabel}</span>
+    <div className="w-full max-w-2xl mx-auto flex flex-col items-center gap-6">
+      {(stageLabel || card.stage_intro) && (
+        <div className="w-full text-center">
+          <div className="text-xs uppercase tracking-widest text-muted-foreground">
+            {card.stage_intro?.title ?? stageLabel}
+          </div>
+          {card.stage_intro?.guidance && (
+            <div className="mt-1 text-sm text-muted-foreground/90 italic max-w-md mx-auto">
+              {card.stage_intro.guidance}
+            </div>
+          )}
+        </div>
       )}
       <div className="w-full min-h-[16rem] flex flex-col items-center justify-center gap-3 rounded-[2rem] bg-card border border-border/60 shadow-sm px-6 py-10">
         <div className={cn("font-display font-semibold text-center text-primary leading-tight", displaySize)}>

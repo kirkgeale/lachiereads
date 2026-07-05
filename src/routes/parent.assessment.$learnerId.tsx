@@ -4,7 +4,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { startAssessment, finalizeAssessment, listAssessments } from "@/lib/assessment.functions";
 import { toast } from "sonner";
-import { ClipboardCheck, ChevronLeft, Check, HelpCircle, X, SkipForward, Sparkles, Loader2 } from "lucide-react";
+import { ClipboardCheck, ChevronLeft, Check, RotateCcw, MessageCircle, X, SkipForward, Sparkles, Loader2 } from "lucide-react";
 import { Card, EmptyState } from "./parent.index";
 
 export const Route = createFileRoute("/parent/assessment/$learnerId")({
@@ -21,7 +21,7 @@ type Probe = {
   difficulty: number;
   notes?: string;
 };
-type Outcome = "correct" | "hesitated" | "missed" | "skipped";
+type Outcome = "correct" | "self_corrected" | "prompted" | "missed" | "skipped";
 
 function AssessmentPage() {
   const { learnerId } = Route.useParams();
@@ -178,12 +178,16 @@ function AssessmentPage() {
             {current.notes && (
               <p className="text-xs text-muted-foreground mt-3">Listen for: {current.notes}</p>
             )}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-6">
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-2 mt-6">
               <OutcomeBtn onClick={() => record("correct")} icon={<Check className="w-4 h-4" />} label="Correct" tone="primary" />
-              <OutcomeBtn onClick={() => record("hesitated")} icon={<HelpCircle className="w-4 h-4" />} label="Hesitated" tone="accent" />
+              <OutcomeBtn onClick={() => record("self_corrected")} icon={<RotateCcw className="w-4 h-4" />} label="Self-corrected" tone="accent" />
+              <OutcomeBtn onClick={() => record("prompted")} icon={<MessageCircle className="w-4 h-4" />} label="Prompted" tone="accent" />
               <OutcomeBtn onClick={() => record("missed")} icon={<X className="w-4 h-4" />} label="Missed" tone="muted" />
               <OutcomeBtn onClick={() => record("skipped")} icon={<SkipForward className="w-4 h-4" />} label="Skip" tone="muted" />
             </div>
+            <p className="mt-3 text-[11px] text-muted-foreground leading-snug">
+              <b>Correct</b>: read cleanly first try. <b>Self-corrected</b>: fixed it themselves. <b>Prompted</b>: needed a hint. <b>Missed</b>: couldn't read it.
+            </p>
           </Card>
         )}
       </div>

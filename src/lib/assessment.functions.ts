@@ -13,7 +13,7 @@ interface Probe {
 }
 
 interface ProbeResult extends Probe {
-  outcome: "correct" | "hesitated" | "missed" | "skipped";
+  outcome: "correct" | "self_corrected" | "prompted" | "missed" | "skipped";
 }
 
 function ageYears(birthdate: string | null): number | null {
@@ -100,7 +100,7 @@ export const finalizeAssessment = createServerFn({ method: "POST" })
             target_heart_word: z.string().optional(),
             difficulty: z.number(),
             notes: z.string().optional(),
-            outcome: z.enum(["correct", "hesitated", "missed", "skipped"]),
+            outcome: z.enum(["correct", "self_corrected", "prompted", "missed", "skipped", "hesitated"]),
           }),
         ),
       })
