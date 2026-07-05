@@ -71,14 +71,3 @@ export const setActiveLearner = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-export const setDyslexiaFont = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .inputValidator((d: { enabled: boolean }) => z.object({ enabled: z.boolean() }).parse(d))
-  .handler(async ({ data, context }) => {
-    const { error } = await context.supabase
-      .from("parent_settings")
-      .update({ dyslexia_font: data.enabled })
-      .eq("parent_id", context.userId);
-    if (error) throw new Error(error.message);
-    return { ok: true };
-  });

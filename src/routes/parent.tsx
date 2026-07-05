@@ -1,9 +1,9 @@
 import { createFileRoute, Outlet, useNavigate, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
-import { getParentSettings, setDyslexiaFont } from "@/lib/parent.functions";
+import { getParentSettings } from "@/lib/parent.functions";
 import { listLearners } from "@/lib/learners.functions";
-import { ChevronLeft, Users, Map, AlertTriangle, LineChart, Award, Type, ClipboardCheck } from "lucide-react";
+import { ChevronLeft, Users, Map, AlertTriangle, LineChart, Award, ClipboardCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 
@@ -16,19 +16,12 @@ export const Route = createFileRoute("/parent")({
 function ParentLayout() {
   const navigate = useNavigate();
   const getSettings = useServerFn(getParentSettings);
-  const setFont = useServerFn(setDyslexiaFont);
   const listLearnersFn = useServerFn(listLearners);
 
   const settingsQ = useQuery({ queryKey: ["parent-settings"], queryFn: () => getSettings() });
   const learnersQ = useQuery({ queryKey: ["learners"], queryFn: () => listLearnersFn() });
 
   const settings = settingsQ.data;
-
-  const toggleFont = async () => {
-    await setFont({ data: { enabled: !settings?.dyslexia_font } });
-    settingsQ.refetch();
-  };
-
   const learners = learnersQ.data ?? [];
 
   if (settingsQ.isLoading) {
@@ -68,20 +61,9 @@ function ParentLayout() {
             </button>
             <div className="text-lg font-display text-primary">Parent dashboard</div>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={toggleFont}
-              className={cn(
-                "rounded-full px-3 py-1.5 text-xs border",
-                settings?.dyslexia_font ? "bg-primary text-primary-foreground border-primary" : "border-input text-muted-foreground",
-              )}
-              title="Toggle dyslexia-friendly font"
-            >
-              <Type className="w-3.5 h-3.5 inline mr-1" /> Dyslexia font
-            </button>
-          </div>
         </div>
       </header>
+
 
       <div className="max-w-6xl mx-auto p-4 md:p-6 grid md:grid-cols-[220px_1fr] gap-6">
         <nav className="flex md:flex-col gap-2 overflow-x-auto md:overflow-visible">
