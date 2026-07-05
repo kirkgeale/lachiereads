@@ -14,9 +14,6 @@ const UNLOCK_KEY = "rg-parent-unlocked";
 
 export const Route = createFileRoute("/parent")({
   ssr: false,
-  beforeLoad: async () => {
-    await requireParentAuth();
-  },
   component: ParentLayout,
 });
 
