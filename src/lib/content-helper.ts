@@ -23,6 +23,8 @@ interface GenArgs {
   targetSoundLabel?: string | null;
   recentMisses?: string[];
   interferencePairs?: InterferencePair[];
+  strengths?: string[];  // items the learner reliably gets right — safe to stretch
+  challenges?: string[]; // items shaky or freshly missed — needs gentle re-exposure
 }
 
 function makeCacheKey(a: GenArgs): string {
