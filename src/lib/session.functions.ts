@@ -366,9 +366,10 @@ export const startSession = createServerFn({ method: "POST" })
         key: `i-${targetGpc.id}`,
         item_type: "gpc",
         item_ref: targetGpc.id,
-        display: targetInterference.example_word ?? targetGpc.grapheme,
-        interference: targetInterference,
+        display: (targetInterference as any).example_word ?? targetGpc.grapheme,
+        interference: targetInterference as any,
         stage: "interference",
+        meta: { kind: "interference", interference_id: (targetInterference as any).id },
       });
     }
 
