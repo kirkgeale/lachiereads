@@ -37,10 +37,20 @@ function SessionScreen() {
   const navigate = useNavigate();
   const start = useServerFn(startSession);
   const save = useServerFn(saveSessionEvents);
+  const getSummary = useServerFn(getLearnerSummary);
+
+  const summaryQ = useQuery({
+    queryKey: ["learner-summary", learnerId],
+    queryFn: () => getSummary({ data: { learner_id: learnerId } }),
+    staleTime: 30_000,
+  });
+  const calibrated = (summaryQ.data as any)?.calibrated ?? false;
+  const summaryReady = summaryQ.isSuccess;
 
   const planQ = useQuery({
     queryKey: ["session-plan", learnerId],
     queryFn: () => start({ data: { learner_id: learnerId } }),
+    enabled: summaryReady && calibrated,
     refetchOnMount: false,
     refetchOnWindowFocus: false,
     staleTime: Infinity,
