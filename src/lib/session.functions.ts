@@ -198,16 +198,37 @@ export const startSession = createServerFn({ method: "POST" })
 
     const { data: learnerRow } = await supabase
       .from("learners")
-      .select("birthdate")
+      .select("birthdate, interests")
       .eq("id", data.learner_id)
       .maybeSingle();
-    const ageYears = learnerRow?.birthdate
-      ? Math.floor((Date.now() - new Date(learnerRow.birthdate).getTime()) / (365.25 * 86400000))
+    const ageYears = (learnerRow as any)?.birthdate
+      ? Math.floor((Date.now() - new Date((learnerRow as any).birthdate).getTime()) / (365.25 * 86400000))
       : null;
+    const interests = ((learnerRow as any)?.interests as string | null) ?? null;
 
-    const { data: interferenceRows } = await supabase
-      .from("interference_items")
-      .select("grapheme, swedish_value, english_value");
+    // Filtered interference pairs: only non-secure AND (in allowed graphemes OR is the current target)
+    const { data: interferenceStatusRows } = await supabase
+      .from("learner_interference_status")
+      .select("status, interference_items(id, grapheme, swedish_value, english_value)")
+      .eq("learner_id", data.learner_id);
+    const allowedSet = new Set(allowedGraphemes);
+    const interferenceRows = ((interferenceStatusRows ?? []) as any[])
+      .filter((r) => r.status !== "secure")
+      .map((r) => r.interference_items)
+      .filter((it: any) => it && (allowedSet.has(it.grapheme) || it.grapheme === targetGpc?.grapheme))
+      .map((it: any) => ({ grapheme: it.grapheme, swedish_value: it.swedish_value, english_value: it.english_value }));
+
+    // Recent parent observations from last 3 sessions
+    const { data: recentSessions } = await supabase
+      .from("sessions")
+      .select("parent_notes")
+      .eq("learner_id", data.learner_id)
+      .not("parent_notes", "is", null)
+      .order("created_at", { ascending: false })
+      .limit(3);
+    const parentObservations = ((recentSessions ?? []) as any[])
+      .map((s) => (s.parent_notes ?? "").trim())
+      .filter(Boolean);
 
     // Recent challenges (last ~40 events): anything that wasn't clean got_it
     const { data: recentEvents } = await supabase
