@@ -164,36 +164,3 @@ function InterestsField({ learnerId, value, onSave }: { learnerId: string; value
     </div>
   );
 }
-              className="rounded-xl border border-input bg-background px-3 py-2 text-sm"
-            >
-              {THEMES.map((t) => (
-                <option key={t} value={t}>{t}</option>
-              ))}
-            </select>
-            <button
-              onClick={async () => {
-                await setActive({ data: { learner_id: l.id } });
-                toast.success(`${l.name} is active`);
-                qc.invalidateQueries({ queryKey: ["parent-settings"] });
-              }}
-              className="rounded-full bg-secondary text-secondary-foreground px-4 py-2 text-sm hover:bg-secondary/70"
-            >
-              <Check className="w-3.5 h-3.5 inline mr-1" /> Set active
-            </button>
-            <button
-              onClick={async () => {
-                if (!confirm(`Delete ${l.name} and all their data?`)) return;
-                await delFn({ data: { id: l.id } });
-                qc.invalidateQueries({ queryKey: ["learners"] });
-              }}
-              className="rounded-full text-destructive hover:bg-destructive/10 p-2"
-              aria-label="Delete"
-            >
-              <Trash2 className="w-4 h-4" />
-            </button>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
