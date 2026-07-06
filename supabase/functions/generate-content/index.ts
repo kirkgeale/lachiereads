@@ -149,7 +149,7 @@ Deno.serve(async (req: Request) => {
       },
       body: JSON.stringify({
         model: CLAUDE_MODEL,
-        max_tokens: 700,
+        max_tokens: body.type === "lesson_bundle" ? 2000 : 700,
         system: SYSTEM,
         messages: [{ role: "user", content: prompt }],
       }),
