@@ -17,13 +17,14 @@ export const listLearners = createServerFn({ method: "GET" })
 // CREATE LEARNER
 export const createLearner = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { name: string; birthdate?: string | null; garden_theme?: string; notes?: string | null }) =>
+  .inputValidator((d: { name: string; birthdate?: string | null; garden_theme?: string; notes?: string | null; interests?: string | null }) =>
     z
       .object({
         name: z.string().min(1).max(60),
         birthdate: z.string().nullable().optional(),
         garden_theme: z.string().optional(),
         notes: z.string().nullable().optional(),
+        interests: z.string().nullable().optional(),
       })
       .parse(d),
   )
@@ -36,7 +37,8 @@ export const createLearner = createServerFn({ method: "POST" })
         birthdate: data.birthdate ?? null,
         garden_theme: data.garden_theme ?? "meadow",
         notes: data.notes ?? null,
-      })
+        interests: data.interests ?? null,
+      } as any)
       .select()
       .single();
     if (error) throw new Error(error.message);
@@ -45,7 +47,7 @@ export const createLearner = createServerFn({ method: "POST" })
 
 export const updateLearner = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { id: string; name?: string; garden_theme?: string; notes?: string | null; birthdate?: string | null }) =>
+  .inputValidator((d: { id: string; name?: string; garden_theme?: string; notes?: string | null; birthdate?: string | null; interests?: string | null }) =>
     z
       .object({
         id: z.string().uuid(),
@@ -53,12 +55,13 @@ export const updateLearner = createServerFn({ method: "POST" })
         garden_theme: z.string().optional(),
         notes: z.string().nullable().optional(),
         birthdate: z.string().nullable().optional(),
+        interests: z.string().nullable().optional(),
       })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
     const { id, ...patch } = data;
-    const { error } = await context.supabase.from("learners").update(patch).eq("id", id);
+    const { error } = await context.supabase.from("learners").update(patch as any).eq("id", id);
     if (error) throw new Error(error.message);
     return { ok: true };
   });
