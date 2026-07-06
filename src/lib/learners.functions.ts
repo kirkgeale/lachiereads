@@ -117,10 +117,70 @@ export const getLearnerSummary = createServerFn({ method: "GET" })
       .neq("status", "not_started")
       .lte("next_due_date", today);
 
+    // Calibration: applied assessment OR any gpc status advanced past 'not_started'
+    const { count: appliedAssessments } = await context.supabase
+      .from("assessment_reports")
+      .select("id", { count: "exact", head: true })
+      .eq("learner_id", data.learner_id)
+      .eq("applied", true);
+    const { count: advancedGpc } = await context.supabase
+      .from("learner_gpc_status")
+      .select("id", { count: "exact", head: true })
+      .eq("learner_id", data.learner_id)
+      .neq("status", "not_started");
+    const calibrated = (appliedAssessments ?? 0) > 0 || (advancedGpc ?? 0) > 0;
+
     return {
       learner,
       rewards: rewards ?? { stars: 0, current_streak_days: 0, longest_streak: 0, badges_json: [] },
       secureGpcs,
       due_count: (dueGpc ?? 0) + (dueHw ?? 0),
+      calibrated,
     };
+  });
+
+// Quick calibration: bulk-set gpc + heart-word statuses from a parent tick-list.
+export const applyQuickCalibration = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: {
+    learner_id: string;
+    gpcs: { gpc_id: string; level: "not_yet" | "getting_there" | "knows_well" }[];
+    heart_words: { heart_word_id: string; level: "not_yet" | "getting_there" | "knows_well" }[];
+  }) =>
+    z
+      .object({
+        learner_id: z.string().uuid(),
+        gpcs: z.array(z.object({
+          gpc_id: z.string().uuid(),
+          level: z.enum(["not_yet", "getting_there", "knows_well"]),
+        })),
+        heart_words: z.array(z.object({
+          heart_word_id: z.string().uuid(),
+          level: z.enum(["not_yet", "getting_there", "knows_well"]),
+        })),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const today = new Date().toISOString().slice(0, 10);
+    const mapPatch = (level: "not_yet" | "getting_there" | "knows_well") => {
+      if (level === "knows_well") return { status: "secure" as const, leitner_box: 5, correct_streak: 1, next_due_date: today };
+      if (level === "getting_there") return { status: "practising" as const, leitner_box: 3, correct_streak: 0, next_due_date: today };
+      return { status: "not_started" as const, leitner_box: 1, correct_streak: 0, next_due_date: null as string | null };
+    };
+    for (const g of data.gpcs) {
+      await context.supabase
+        .from("learner_gpc_status")
+        .update(mapPatch(g.level) as any)
+        .eq("learner_id", data.learner_id)
+        .eq("gpc_id", g.gpc_id);
+    }
+    for (const h of data.heart_words) {
+      await context.supabase
+        .from("learner_heart_word_status")
+        .update(mapPatch(h.level) as any)
+        .eq("learner_id", data.learner_id)
+        .eq("heart_word_id", h.heart_word_id);
+    }
+    return { ok: true };
   });
