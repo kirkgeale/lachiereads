@@ -72,9 +72,7 @@ function ParentLayout() {
           {activeLearner && (
             <>
               {navItem(`/parent/phonics/${activeLearner}`, "Phonics map", Map)}
-              {navItem(`/parent/interference/${activeLearner}`, "Interference", AlertTriangle)}
               {navItem(`/parent/sessions/${activeLearner}`, "Sessions", LineChart)}
-              {navItem(`/parent/benchmark/${activeLearner}`, "Benchmark", Award)}
               {navItem(`/parent/assessment/${activeLearner}`, "Assessment", ClipboardCheck)}
             </>
           )}
