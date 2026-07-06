@@ -54,6 +54,7 @@ function buildPrompt(r: Req): string {
   parts.push(`Allowed graphemes: [${gs}]`);
   parts.push(`Allowed heart words: [${hs}]`);
   if (r.age_years != null) parts.push(`Learner age: ~${r.age_years} years`);
+  if (r.current_phase != null) parts.push(`Current synthetic-phonics phase: ${r.current_phase}`);
   if (r.target_grapheme) {
     parts.push(`TARGET grapheme this session: "${r.target_grapheme}"${r.target_sound_label ? ` (sound: ${r.target_sound_label})` : ""}. Feature it heavily.`);
   }
