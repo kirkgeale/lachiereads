@@ -81,6 +81,7 @@ export async function generateContentInternal(a: GenArgs): Promise<any> {
         allowed_graphemes: a.allowedGraphemes,
         known_heart_words: a.knownHeartWords,
         age_years: a.ageYears ?? null,
+        current_phase: a.currentPhase ?? null,
         target_grapheme: a.targetGrapheme ?? null,
         target_sound_label: a.targetSoundLabel ?? null,
         recent_misses: a.recentMisses ?? [],
@@ -95,9 +96,9 @@ export async function generateContentInternal(a: GenArgs): Promise<any> {
     console.error("[generate-content edge] error", err);
   }
 
-  // Server-side decodability validation
+  // Server-side decodability validation (skipped for lesson_bundle — validated by caller)
   let ok = false;
-  if (content) {
+  if (content && a.type !== "lesson_bundle") {
     const words: string[] = [];
     if (content.words) words.push(...content.words);
     if (content.sentence) words.push(...extractWords(content.sentence));
@@ -105,6 +106,8 @@ export async function generateContentInternal(a: GenArgs): Promise<any> {
     const v = validateContent(words, a.allowedGraphemes, a.knownHeartWords);
     ok = v.ok;
     if (!ok) console.warn("[generate-content] not fully decodable, offenders:", v.offenders);
+  } else if (content && a.type === "lesson_bundle") {
+    ok = true; // trust bundle; caller filters lists
   }
 
   if (!content || !ok) {
@@ -113,8 +116,24 @@ export async function generateContentInternal(a: GenArgs): Promise<any> {
     } else if (a.type === "sentence") {
       const w = fallbackWordList(a.allowedGraphemes, a.knownHeartWords);
       content = { sentence: w.slice(0, 3).join(" ") + "." };
-    } else {
+    } else if (a.type === "story") {
       content = { story: fallbackWordList(a.allowedGraphemes, a.knownHeartWords).join(" ") + "." };
+    } else {
+      // lesson_bundle fallback
+      const w = fallbackWordList(a.allowedGraphemes, a.knownHeartWords);
+      content = {
+        focus: {
+          title: "Practice",
+          concept: "General reading practice with sounds we already know.",
+          parent_intro: "We'll warm up with a few sounds, then read some words together. Take it slow — sound out, then blend.",
+          examples: w.slice(0, 3),
+        },
+        blend_words: w.slice(0, 5),
+        practice_words: w.slice(0, 8),
+        sentence: w.slice(0, 3).join(" ") + ".",
+        story: w.slice(0, 6).join(" ") + ".",
+        flashcard_decodable: w.slice(0, 8),
+      };
     }
   }
 
