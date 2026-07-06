@@ -8,7 +8,7 @@ export const listLearners = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const { data, error } = await context.supabase
       .from("learners")
-      .select("id, name, birthdate, notes, garden_theme, created_at")
+      .select("id, name, birthdate, notes, garden_theme, interests, created_at")
       .order("created_at", { ascending: true });
     if (error) throw new Error(error.message);
     return data ?? [];
