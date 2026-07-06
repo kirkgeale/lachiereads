@@ -3,7 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useQuery } from "@tanstack/react-query";
 import { getParentSettings } from "@/lib/parent.functions";
 import { listLearners } from "@/lib/learners.functions";
-import { ChevronLeft, Users, Map, AlertTriangle, LineChart, Award, ClipboardCheck } from "lucide-react";
+import { ChevronLeft, Users, Map, LineChart, ClipboardCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 
