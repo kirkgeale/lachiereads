@@ -26,6 +26,8 @@ async function computeSessionSeq(supabase: any, learner_id: string): Promise<num
 
 function stageIntro(stage: SessionStage, sound?: string | null): StageIntro | undefined {
   switch (stage) {
+    case "intro":
+      return { title: "Today's focus", guidance: "Read the intro to your child. Point to the examples together before starting." };
     case "warmup":
       return { title: "Warm-up", guidance: "Quick review of sounds they already know — build confidence." };
     case "target":
