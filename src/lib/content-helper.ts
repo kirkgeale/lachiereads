@@ -14,21 +14,19 @@ export interface InterferencePair {
 interface GenArgs {
   supabase: SupabaseClient;
   learner_id: string;
-  type: "word_list" | "sentence" | "story" | "game_words" | "pseudowords";
+  type: "word_list" | "sentence" | "story" | "game_words" | "pseudowords" | "lesson_bundle";
   allowedGraphemes: string[];
   allowedGpcIds: string[];
   knownHeartWords: string[];
   ageYears?: number | null;
+  currentPhase?: number | null;
   targetGrapheme?: string | null;
   targetSoundLabel?: string | null;
   recentMisses?: string[];
   interferencePairs?: InterferencePair[];
   strengths?: string[];
   challenges?: string[];
-  // Freshness salt: same value within one session render (cache hit),
-  // different across sessions/day so repeat sessions get fresh Claude output.
   freshnessSalt?: string;
-  // Optional purpose tag so different callers on the same day get distinct cache rows.
   variant?: string;
 }
 
