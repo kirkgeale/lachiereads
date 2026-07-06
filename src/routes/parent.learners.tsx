@@ -85,19 +85,85 @@ function LearnersPage() {
 
       <div className="space-y-3">
         {(listQ.data ?? []).map((l) => (
-          <div key={l.id} className="bg-card rounded-2xl border border-border/60 p-4 flex items-center gap-4">
-            <div className="flex-1">
-              <div className="text-lg font-display text-primary">{l.name}</div>
-              <div className="text-xs text-muted-foreground">
-                {l.garden_theme} · {l.birthdate ?? "no birthdate"}
+          <div key={l.id} className="bg-card rounded-2xl border border-border/60 p-4 flex flex-col gap-3">
+            <div className="flex items-center gap-4">
+              <div className="flex-1">
+                <div className="text-lg font-display text-primary">{l.name}</div>
+                <div className="text-xs text-muted-foreground">
+                  {l.garden_theme} · {l.birthdate ?? "no birthdate"}
+                </div>
               </div>
+              <select
+                value={l.garden_theme}
+                onChange={async (e) => {
+                  await updateFn({ data: { id: l.id, garden_theme: e.target.value } });
+                  qc.invalidateQueries({ queryKey: ["learners"] });
+                }}
+                className="rounded-xl border border-input bg-background px-3 py-2 text-sm"
+              >
+                {THEMES.map((t) => (
+                  <option key={t} value={t}>{t}</option>
+                ))}
+              </select>
+              <button
+                onClick={async () => {
+                  await setActive({ data: { learner_id: l.id } });
+                  toast.success(`${l.name} is active`);
+                  qc.invalidateQueries({ queryKey: ["parent-settings"] });
+                }}
+                className="rounded-full bg-secondary text-secondary-foreground px-4 py-2 text-sm hover:bg-secondary/70"
+              >
+                <Check className="w-3.5 h-3.5 inline mr-1" /> Set active
+              </button>
+              <button
+                onClick={async () => {
+                  if (!confirm(`Delete ${l.name} and all their data?`)) return;
+                  await delFn({ data: { id: l.id } });
+                  qc.invalidateQueries({ queryKey: ["learners"] });
+                }}
+                className="rounded-full text-destructive hover:bg-destructive/10 p-2"
+                aria-label="Delete"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
             </div>
-            <select
-              value={l.garden_theme}
-              onChange={async (e) => {
-                await updateFn({ data: { id: l.id, garden_theme: e.target.value } });
+            <InterestsField
+              learnerId={l.id}
+              value={(l as any).interests ?? ""}
+              onSave={async (v) => {
+                await updateFn({ data: { id: l.id, interests: v || null } });
                 qc.invalidateQueries({ queryKey: ["learners"] });
               }}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function InterestsField({ learnerId, value, onSave }: { learnerId: string; value: string; onSave: (v: string) => Promise<void> | void }) {
+  const [v, setV] = useState(value);
+  const [saving, setSaving] = useState(false);
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        key={learnerId}
+        value={v}
+        onChange={(e) => setV(e.target.value)}
+        placeholder="Interests (e.g. dinosaurs, football, space)"
+        className="flex-1 rounded-xl border border-input bg-background px-3 py-2 text-sm"
+      />
+      <button
+        onClick={async () => { setSaving(true); await onSave(v); setSaving(false); toast.success("Saved"); }}
+        disabled={saving || v === value}
+        className="rounded-full bg-secondary text-secondary-foreground px-3 py-1.5 text-xs disabled:opacity-50"
+      >
+        {saving ? "Saving…" : "Save"}
+      </button>
+    </div>
+  );
+}
               className="rounded-xl border border-input bg-background px-3 py-2 text-sm"
             >
               {THEMES.map((t) => (
