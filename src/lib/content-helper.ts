@@ -28,6 +28,8 @@ interface GenArgs {
   challenges?: string[];
   freshnessSalt?: string;
   variant?: string;
+  interests?: string | null;
+  parentObservations?: string[];
 }
 
 function makeCacheKey(a: GenArgs): string {
@@ -39,7 +41,9 @@ function makeCacheKey(a: GenArgs): string {
   const c = (a.challenges ?? []).slice(0, 8).sort().join(",");
   const f = a.freshnessSalt ?? "";
   const v = a.variant ?? "";
-  return `${a.type}::${gs}::${hs}::t=${t}::m=${m}::s=${s}::c=${c}::f=${f}::v=${v}`;
+  const i = (a.interests ?? "").trim().toLowerCase();
+  const p = (a.parentObservations ?? []).slice(0, 3).join("|");
+  return `${a.type}::${gs}::${hs}::t=${t}::m=${m}::s=${s}::c=${c}::f=${f}::v=${v}::i=${i}::p=${p}`;
 }
 
 function fallbackWordList(allowedGraphemes: string[], known: string[]): string[] {
