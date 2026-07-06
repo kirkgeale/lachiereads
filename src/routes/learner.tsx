@@ -60,6 +60,7 @@ function KidHome() {
   const rewards = summaryQ.data?.rewards;
   const secure = summaryQ.data?.secureGpcs ?? [];
   const dueCount = summaryQ.data?.due_count ?? 0;
+  const calibrated = (summaryQ.data as any)?.calibrated ?? true;
 
   return (
     <div className="min-h-screen p-4 md:p-8">
