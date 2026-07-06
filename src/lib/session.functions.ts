@@ -511,9 +511,52 @@ export const saveSessionEvents = createServerFn({ method: "POST" })
           next_due_date: res.next_due_date,
           last_seen: res.last_seen,
         })
-        .eq("learner_id", data.learner_id)
-        .eq("heart_word_id", ev.item_ref);
+      .eq("learner_id", data.learner_id)
+      .eq("heart_word_id", ev.item_ref);
     }
+
+    // Interference progression: any event whose card_key starts with "i-" is the interference card.
+    // Advance still_confuses -> resolving -> secure on got_it; hold at resolving on
+    // self_corrected / prompted; reset to still_confuses on missed.
+    const interferenceEvents = data.events.filter((e) => e.card_key.startsWith("i-") && e.item_type === "gpc" && e.item_ref);
+    for (const ev of interferenceEvents) {
+      // gpc_id -> grapheme
+      const { data: gpcRow } = await supabase
+        .from("gpcs")
+        .select("grapheme")
+        .eq("id", ev.item_ref)
+        .maybeSingle();
+      const grapheme = (gpcRow as any)?.grapheme;
+      if (!grapheme) continue;
+      const { data: intRow } = await supabase
+        .from("interference_items")
+        .select("id")
+        .eq("grapheme", grapheme)
+        .maybeSingle();
+      const interferenceId = (intRow as any)?.id;
+      if (!interferenceId) continue;
+      const { data: status } = await supabase
+        .from("learner_interference_status")
+        .select("status")
+        .eq("learner_id", data.learner_id)
+        .eq("interference_id", interferenceId)
+        .maybeSingle();
+      const current = ((status as any)?.status ?? "still_confuses") as "still_confuses" | "resolving" | "secure";
+      let next = current;
+      if (ev.outcome === "got_it") {
+        next = current === "still_confuses" ? "resolving" : current === "resolving" ? "secure" : "secure";
+      } else if (ev.outcome === "self_corrected" || ev.outcome === "prompted") {
+        next = current === "secure" ? "resolving" : "resolving";
+      } else if (ev.outcome === "missed") {
+        next = "still_confuses";
+      }
+      if (next !== current) {
+        await supabase
+          .from("learner_interference_status")
+          .update({ status: next })
+          .eq("learner_id", data.learner_id)
+          .eq("interference_id", interferenceId);
+      }
 
     // Stars: 1 per got_it, 0.5 (rounded) per self_corrected
     const stars =
