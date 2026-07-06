@@ -29,12 +29,14 @@ interface Req {
   strengths?: string[];                // graphemes/heart-words the learner reliably nails
   challenges?: string[];               // graphemes/heart-words that are shaky or freshly missed
   current_phase?: number | null;       // synthetic-phonics phase, 1..5
+  interests?: string | null;           // free-form child interests, e.g. "dinosaurs, football, space"
+  parent_observations?: string[];      // recent parent notes from prior sessions (soft context)
 }
 
 const SYSTEM = `You write extremely short, calm, wholesome English reading practice for a ~7-year-old native English speaker who is being formally schooled in Swedish and is now learning to DECODE English via synthetic phonics.
 
 Non-negotiable rules:
-1. STRICT DECODABILITY. Every word must either (a) be composed only from the allowed graphemes provided, or (b) be one of the heart words provided. Never introduce a new grapheme or a word the child cannot decode yet.
+1. STRICT DECODABILITY. Every word must either (a) be composed only from the allowed graphemes provided, or (b) be one of the heart words provided. Never introduce a new grapheme or a word the child cannot decode yet. Interests and parent observations NEVER override this rule.
 2. Prefer 2-5 letter words. Blends are fine when their letters are in the allowed set.
 3. If a target grapheme is provided, HEAVILY feature it: at least half of the words in a word list should contain it; a sentence should include it at least twice when natural.
 4. If recent misses are provided, include 1-2 gentle re-exposures of those patterns (do NOT stack them; embed in easy contexts).
@@ -43,9 +45,10 @@ Non-negotiable rules:
    - STRENGTHS (reliably correct): stretch them — use longer words, more of them per sentence, denser blends, or trickier positions (initial/medial/final). Do not baby-step areas the child owns.
    - CHALLENGES (shaky or freshly missed): keep contexts short and easy, isolate one hard element at a time, and re-expose gently. Never combine two challenge items in the same word.
    - Absent strengths/challenges means "unknown yet" — pitch at a neutral baseline.
-7. Themes: nature, animals, garden, everyday small moments. Nothing scary, no wordplay, no idioms, no cultural in-jokes.
-8. Sentences and stories must sound like natural English a child would actually say. No word salad.
-9. Return ONLY strict JSON matching the requested schema. No prose, no code fences, no commentary.`;
+7. THEMES: if the learner's interests are provided, prefer those interests as the theme of the words, sentence, and story — keep it calm, wholesome and age-appropriate. If no interests are provided, fall back to nature, animals, garden, and everyday small moments. Nothing scary, no wordplay, no idioms, no cultural in-jokes.
+8. PARENT OBSERVATIONS (soft context): if provided, treat them as gentle signals — a specific confusion, a mood note, or a topic the child loved. Gently bias the lesson accordingly (e.g. a slightly shorter set if "tired"; re-expose a pattern the parent flagged). Never break decodability or the target focus to accommodate them.
+9. Sentences and stories must sound like natural English a child would actually say. No word salad.
+10. Return ONLY strict JSON matching the requested schema. No prose, no code fences, no commentary.`;
 
 function buildPrompt(r: Req): string {
   const gs = r.allowed_graphemes.join(", ");
