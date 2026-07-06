@@ -146,6 +146,28 @@ function SessionScreen() {
               {saveMut.isPending ? "Saving…" : "Finish"}
             </button>
           </div>
+        ) : current.stage === "intro" ? (
+          <div className="flex flex-col items-center gap-6 py-4">
+            <div className="text-xs uppercase tracking-widest text-muted-foreground">Today's focus</div>
+            <h2 className="text-3xl md:text-4xl font-display text-primary text-center">
+              {current.display}
+            </h2>
+            {current.meta?.concept && (
+              <p className="text-lg text-center max-w-xl">{String(current.meta.concept)}</p>
+            )}
+            {current.meta?.parent_intro && (
+              <div className="w-full max-w-xl rounded-2xl bg-accent/10 border border-accent/30 p-5">
+                <div className="text-xs uppercase tracking-wider mb-2 text-accent">For the parent — read aloud</div>
+                <p className="text-base">{String(current.meta.parent_intro)}</p>
+              </div>
+            )}
+            <button
+              onClick={() => setIdx((i) => Math.min(cards.length - 1, i + 1))}
+              className="rounded-full bg-primary text-primary-foreground px-8 py-3.5 font-medium hover:bg-primary/90"
+            >
+              Let's begin
+            </button>
+          </div>
         ) : (
           <>
             <ItemCard card={current} stageLabel={stageBreak ? STAGE_LABELS[stageBreak] : undefined} />
