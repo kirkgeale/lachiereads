@@ -129,32 +129,60 @@ function KidHome() {
 
         {learner && <Garden secure={secure} theme={learner.garden_theme} />}
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-          <button
-            onClick={() => activeId && navigate({ to: "/session/$learnerId", params: { learnerId: activeId } })}
-            disabled={!activeId}
-            className="rounded-3xl bg-primary text-primary-foreground p-8 flex items-center justify-between hover:bg-primary/90 active:scale-[0.98] transition-all disabled:opacity-50"
-          >
-            <div className="text-left">
-              <div className="text-xl font-display">Start reading</div>
-              <div className="text-sm opacity-80">A guided session</div>
+        {activeId && !calibrated ? (
+          <div className="mt-6 rounded-3xl bg-card border border-border/60 p-6 shadow-sm">
+            <div className="text-xs uppercase tracking-widest text-muted-foreground mb-1">First things first</div>
+            <h2 className="text-2xl font-display text-primary mb-2">
+              Let's find {learner?.name ?? "your child"}'s starting point
+            </h2>
+            <p className="text-sm text-muted-foreground mb-4">
+              Before the first real session, tell us what they already know so lessons pitch at the right level.
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <button
+                onClick={() => navigate({ to: "/parent/assessment/$learnerId", params: { learnerId: activeId } })}
+                className="rounded-2xl bg-primary text-primary-foreground p-5 text-left hover:bg-primary/90"
+              >
+                <div className="font-display text-lg">Run the full reading assessment</div>
+                <div className="text-sm opacity-80">AI-guided probes, ~10 minutes.</div>
+              </button>
+              <button
+                onClick={() => navigate({ to: "/parent/quick-setup/$learnerId", params: { learnerId: activeId } })}
+                className="rounded-2xl bg-accent text-accent-foreground p-5 text-left hover:bg-accent/90"
+              >
+                <div className="font-display text-lg">Quick set-up</div>
+                <div className="text-sm opacity-80">Tick what they already know — 1 minute.</div>
+              </button>
             </div>
-            <BookOpen className="w-8 h-8" />
-          </button>
-          <button
-            onClick={() => activeId && navigate({ to: "/flashcards/$learnerId", params: { learnerId: activeId } })}
-            disabled={!activeId}
-            className="rounded-3xl bg-accent text-accent-foreground p-8 flex items-center justify-between hover:bg-accent/90 active:scale-[0.98] transition-all disabled:opacity-50"
-          >
-            <div className="text-left">
-              <div className="text-xl font-display">Flashcards</div>
-              <div className="text-sm opacity-80">
-                {dueCount > 0 ? `${dueCount} due today` : "Quick review deck"}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+            <button
+              onClick={() => activeId && navigate({ to: "/session/$learnerId", params: { learnerId: activeId } })}
+              disabled={!activeId}
+              className="rounded-3xl bg-primary text-primary-foreground p-8 flex items-center justify-between hover:bg-primary/90 active:scale-[0.98] transition-all disabled:opacity-50"
+            >
+              <div className="text-left">
+                <div className="text-xl font-display">Start reading</div>
+                <div className="text-sm opacity-80">A guided session</div>
               </div>
-            </div>
-            <Zap className="w-8 h-8" />
-          </button>
-        </div>
+              <BookOpen className="w-8 h-8" />
+            </button>
+            <button
+              onClick={() => activeId && navigate({ to: "/flashcards/$learnerId", params: { learnerId: activeId } })}
+              disabled={!activeId}
+              className="rounded-3xl bg-accent text-accent-foreground p-8 flex items-center justify-between hover:bg-accent/90 active:scale-[0.98] transition-all disabled:opacity-50"
+            >
+              <div className="text-left">
+                <div className="text-xl font-display">Flashcards</div>
+                <div className="text-sm opacity-80">
+                  {dueCount > 0 ? `${dueCount} due today` : "Quick review deck"}
+                </div>
+              </div>
+              <Zap className="w-8 h-8" />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
