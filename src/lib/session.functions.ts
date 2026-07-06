@@ -282,6 +282,8 @@ export const startSession = createServerFn({ method: "POST" })
       strengths,
       challenges,
       freshnessSalt,
+      interests,
+      parentObservations,
     };
 
     // --- ONE Claude call for the whole lesson bundle ---
