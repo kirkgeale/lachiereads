@@ -16,7 +16,7 @@ interface InterferencePair {
 }
 
 interface Req {
-  type: "word_list" | "sentence" | "story" | "game_words" | "pseudowords";
+  type: "word_list" | "sentence" | "story" | "game_words" | "pseudowords" | "lesson_bundle";
   allowed_graphemes: string[];
   known_heart_words: string[];
 
@@ -28,6 +28,7 @@ interface Req {
   interference_pairs?: InterferencePair[];
   strengths?: string[];                // graphemes/heart-words the learner reliably nails
   challenges?: string[];               // graphemes/heart-words that are shaky or freshly missed
+  current_phase?: number | null;       // synthetic-phonics phase, 1..5
 }
 
 const SYSTEM = `You write extremely short, calm, wholesome English reading practice for a ~7-year-old native English speaker who is being formally schooled in Swedish and is now learning to DECODE English via synthetic phonics.
