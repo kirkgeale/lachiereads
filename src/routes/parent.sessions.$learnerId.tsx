@@ -41,7 +41,6 @@ function SessionHistory() {
                 </div>
                 <div className="flex gap-1 text-xs">
                   <span className="px-2 py-0.5 rounded-full bg-primary/15 text-primary">{s.got_it}</span>
-                  <span className="px-2 py-0.5 rounded-full bg-[hsl(40_60%_82%)] text-[hsl(30_50%_30%)]">{s.hesitated}</span>
                   <span className="px-2 py-0.5 rounded-full bg-[hsl(20_40%_78%)] text-[hsl(20_40%_28%)]">{s.missed}</span>
                 </div>
               </li>
