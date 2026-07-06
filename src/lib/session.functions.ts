@@ -368,6 +368,7 @@ export const startSession = createServerFn({ method: "POST" })
 
     // Assemble in order, attach stage_intro to the first card of each stage
     const ordered: SessionCard[] = [
+      ...introCards,
       ...warmup,
       ...targetCards,
       ...blendCards,
