@@ -79,7 +79,6 @@ function AssessmentPage() {
     const canDo = report.what_they_can_do ?? report.strengths ?? [];
     const workingOn = report.working_on ?? report.focus_areas ?? [];
     const notYet = report.not_yet ?? [];
-    const bench = report.age_benchmark;
     const actions = report.parent_actions_this_week ?? report.next_steps ?? [];
     return (
       <div className="space-y-4">
@@ -87,61 +86,6 @@ function AssessmentPage() {
         {plainSummary && (
           <Card title="How the reading is going">
             <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">{plainSummary}</p>
-          </Card>
-        )}
-        {bench && (
-          <Card title="Compared to what's typical for age">
-            {bench.typical_for_age && (
-              <div className="mb-3">
-                <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Typical for age</div>
-                <p className="text-sm text-foreground/90">{bench.typical_for_age}</p>
-              </div>
-            )}
-            {bench.where_learner_is && (
-              <div className="mb-3">
-                <div className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Where {" "}
-                  they are right now</div>
-                <p className="text-sm text-foreground/90">{bench.where_learner_is}</p>
-              </div>
-            )}
-            {bench.gap_note && (
-              <p className="text-xs text-muted-foreground italic">{bench.gap_note}</p>
-            )}
-            <div className="mt-4 pt-3 border-t border-border/60 text-xs text-muted-foreground space-y-1">
-              <div>Benchmark references (age-related standards):</div>
-              <ul className="list-disc pl-5 space-y-0.5">
-                <li>
-                  <a
-                    href="https://www.gov.uk/government/collections/phonics-screening-check-materials"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline hover:text-foreground"
-                  >
-                    UK Phonics Screening Check (Year 1, age 5–6)
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="https://www.gov.uk/government/publications/national-curriculum-in-england-english-programmes-of-study"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline hover:text-foreground"
-                  >
-                    UK National Curriculum — English Years 1–2
-                  </a>
-                </li>
-                <li>
-                  <a
-                    href="https://www.readingrockets.org/reading-101/reading-101-learning-modules"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="underline hover:text-foreground"
-                  >
-                    Reading Rockets — typical reading milestones by age
-                  </a>
-                </li>
-              </ul>
-            </div>
           </Card>
         )}
         {canDo.length > 0 && (
