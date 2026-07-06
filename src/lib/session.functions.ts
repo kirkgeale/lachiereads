@@ -557,6 +557,9 @@ export const saveSessionEvents = createServerFn({ method: "POST" })
           .eq("learner_id", data.learner_id)
           .eq("interference_id", interferenceId);
       }
+    }
+
+
 
     // Stars: 1 per got_it, 0.5 (rounded) per self_corrected
     const stars =
