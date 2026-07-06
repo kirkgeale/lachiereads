@@ -356,6 +356,7 @@ export type Database = {
           created_at: string
           garden_theme: string
           id: string
+          interests: string | null
           name: string
           notes: string | null
           parent_id: string
@@ -366,6 +367,7 @@ export type Database = {
           created_at?: string
           garden_theme?: string
           id?: string
+          interests?: string | null
           name: string
           notes?: string | null
           parent_id: string
@@ -376,6 +378,7 @@ export type Database = {
           created_at?: string
           garden_theme?: string
           id?: string
+          interests?: string | null
           name?: string
           notes?: string | null
           parent_id?: string

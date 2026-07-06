@@ -2,7 +2,7 @@
 // Produces short, decodable English reading practice tailored to the learner's
 // current level, target grapheme, recent misses, and Swedish-English interference.
 
-const CLAUDE_MODEL = "claude-sonnet-4-5";
+const CLAUDE_MODEL = "claude-sonnet-5";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -29,12 +29,14 @@ interface Req {
   strengths?: string[];                // graphemes/heart-words the learner reliably nails
   challenges?: string[];               // graphemes/heart-words that are shaky or freshly missed
   current_phase?: number | null;       // synthetic-phonics phase, 1..5
+  interests?: string | null;           // free-form child interests, e.g. "dinosaurs, football, space"
+  parent_observations?: string[];      // recent parent notes from prior sessions (soft context)
 }
 
 const SYSTEM = `You write extremely short, calm, wholesome English reading practice for a ~7-year-old native English speaker who is being formally schooled in Swedish and is now learning to DECODE English via synthetic phonics.
 
 Non-negotiable rules:
-1. STRICT DECODABILITY. Every word must either (a) be composed only from the allowed graphemes provided, or (b) be one of the heart words provided. Never introduce a new grapheme or a word the child cannot decode yet.
+1. STRICT DECODABILITY. Every word must either (a) be composed only from the allowed graphemes provided, or (b) be one of the heart words provided. Never introduce a new grapheme or a word the child cannot decode yet. Interests and parent observations NEVER override this rule.
 2. Prefer 2-5 letter words. Blends are fine when their letters are in the allowed set.
 3. If a target grapheme is provided, HEAVILY feature it: at least half of the words in a word list should contain it; a sentence should include it at least twice when natural.
 4. If recent misses are provided, include 1-2 gentle re-exposures of those patterns (do NOT stack them; embed in easy contexts).
@@ -43,9 +45,10 @@ Non-negotiable rules:
    - STRENGTHS (reliably correct): stretch them — use longer words, more of them per sentence, denser blends, or trickier positions (initial/medial/final). Do not baby-step areas the child owns.
    - CHALLENGES (shaky or freshly missed): keep contexts short and easy, isolate one hard element at a time, and re-expose gently. Never combine two challenge items in the same word.
    - Absent strengths/challenges means "unknown yet" — pitch at a neutral baseline.
-7. Themes: nature, animals, garden, everyday small moments. Nothing scary, no wordplay, no idioms, no cultural in-jokes.
-8. Sentences and stories must sound like natural English a child would actually say. No word salad.
-9. Return ONLY strict JSON matching the requested schema. No prose, no code fences, no commentary.`;
+7. THEMES: if the learner's interests are provided, prefer those interests as the theme of the words, sentence, and story — keep it calm, wholesome and age-appropriate. If no interests are provided, fall back to nature, animals, garden, and everyday small moments. Nothing scary, no wordplay, no idioms, no cultural in-jokes.
+8. PARENT OBSERVATIONS (soft context): if provided, treat them as gentle signals — a specific confusion, a mood note, or a topic the child loved. Gently bias the lesson accordingly (e.g. a slightly shorter set if "tired"; re-expose a pattern the parent flagged). Never break decodability or the target focus to accommodate them.
+9. Sentences and stories must sound like natural English a child would actually say. No word salad.
+10. Return ONLY strict JSON matching the requested schema. No prose, no code fences, no commentary.`;
 
 function buildPrompt(r: Req): string {
   const gs = r.allowed_graphemes.join(", ");
@@ -77,6 +80,15 @@ function buildPrompt(r: Req): string {
         r.interference_pairs.map((p) => `  ${p.grapheme}: SV=${p.swedish_value}  EN=${p.english_value}`).join("\n"),
     );
   }
+  if (r.interests && r.interests.trim()) {
+    parts.push(`Learner INTERESTS (prefer as theme; keep calm & age-appropriate; NEVER break decodability): ${r.interests.trim()}`);
+  }
+  if (r.parent_observations?.length) {
+    parts.push(
+      "Recent PARENT OBSERVATIONS (soft context — gentle nudges only):\n" +
+        r.parent_observations.slice(0, 5).map((n) => `  - ${n}`).join("\n"),
+    );
+  }
   const common = "\n" + parts.join("\n") + "\nRULE: every letter of every word must be part of one allowed grapheme or the word must be in the heart-word list.\n";
 
   switch (r.type) {
@@ -90,13 +102,14 @@ function buildPrompt(r: Req): string {
       return `Produce ONE short, calm, natural decodable sentence (4-7 words) a 7-year-old would say.${common}Return JSON: {"sentence": "..."}`;
     case "story":
       return `Produce a very short calm decodable mini-story (3-5 short sentences, natural English).${common}Return JSON: {"story": "..."}`;
-    case "lesson_bundle":
-      return `Design a COMPLETE single lesson for this learner in ONE response. First DECIDE the lesson's focus area — could be the given target grapheme, a shaky pattern from challenges, a blend type they're ready for, a sound-contrast the interference list flags, or a sentence-fluency focus if they're at that phase. Then produce every component of the lesson consistent with that focus.
+    case "lesson_bundle": {
+      const focusRule = r.target_grapheme
+        ? `The lesson focus IS the provided target grapheme "${r.target_grapheme}"${r.target_sound_label ? ` (sound: ${r.target_sound_label})` : ""}. Do NOT choose a different focus. focus.title, focus.concept, and focus.examples MUST all be about this exact target sound/letter-team. blend_words and practice_words must heavily feature it.`
+        : `No target grapheme provided — CHOOSE the focus yourself: if challenges are non-empty, pick one shaky pattern to reinforce; else pick a natural next step (a blend, a longer word, a fluency focus). Then align every component with that chosen focus.`;
+      return `Design a COMPLETE single lesson for this learner in ONE response.
 
-Focus decision rules:
-- If a target grapheme is provided AND it's genuinely new/shaky, focus there.
-- Else if challenges are non-empty, pick one shaky pattern to reinforce.
-- Else pick a natural next step (a blend, a longer word, a fluency focus).
+Focus rule:
+- ${focusRule}
 - The "concept" is a plain-English 1-sentence description of what the child will practise.
 - "parent_intro" is 2-3 short sentences the PARENT reads/says to the child before starting — introduces the concept warmly, models the sound if relevant, mentions how it will look in words.
 - "examples" are 2-4 mouth-friendly example words featuring the focus (must be decodable with allowed graphemes).
@@ -115,6 +128,7 @@ Now produce every list, keeping to the non-negotiable decodability rules.${commo
   "story": "3-5 sentence calm decodable mini-story",
   "flashcard_decodable": ["8 short decodable words for quick flashcard drilling"]
 }`;
+    }
   }
 }
 
