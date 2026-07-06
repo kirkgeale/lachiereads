@@ -6,6 +6,7 @@ export type ContentType = "word_list" | "sentence" | "story" | "game_words" | "p
 export type GpcType = "single" | "digraph" | "split_digraph" | "vowel_team";
 
 export type SessionStage =
+  | "intro"
   | "warmup"
   | "target"
   | "blend"

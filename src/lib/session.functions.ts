@@ -26,6 +26,8 @@ async function computeSessionSeq(supabase: any, learner_id: string): Promise<num
 
 function stageIntro(stage: SessionStage, sound?: string | null): StageIntro | undefined {
   switch (stage) {
+    case "intro":
+      return { title: "Today's focus", guidance: "Read the intro to your child. Point to the examples together before starting." };
     case "warmup":
       return { title: "Warm-up", guidance: "Quick review of sounds they already know — build confidence." };
     case "target":
@@ -251,6 +253,7 @@ export const startSession = createServerFn({ method: "POST" })
       allowedGpcIds,
       knownHeartWords,
       ageYears,
+      currentPhase,
       targetGrapheme: targetGpc?.grapheme ?? null,
       targetSoundLabel: targetGpc?.sound_label ?? null,
       recentMisses,
@@ -260,86 +263,77 @@ export const startSession = createServerFn({ method: "POST" })
       freshnessSalt,
     };
 
-    // --- Blend ladder (phase >= 2): short target-featuring words, easy → harder ---
-    const blendCards: SessionCard[] = [];
-    if (currentPhase >= 2 && allowedGraphemes.length > 0) {
+    // --- ONE Claude call for the whole lesson bundle ---
+    let bundle: any = null;
+    if (allowedGraphemes.length > 0) {
       try {
-        const res = await generateContentInternal({ ...genBase, type: "word_list", variant: "blend_ladder" });
-        const words: string[] = (res.words ?? []).slice(0, 5);
-        for (const w of words) {
-          blendCards.push({
-            key: `b-${w}`,
-            item_type: "decodable_word",
-            item_ref: w,
-            display: w,
-            stage: "blend",
-          });
-        }
+        bundle = await generateContentInternal({ ...genBase, type: "lesson_bundle", variant: "lesson_bundle" });
       } catch (err) {
-        console.error("[startSession] blend ladder failed", err);
+        console.error("[startSession] lesson bundle failed", err);
+      }
+    }
+
+    // Intro card — parent-facing lesson concept + examples
+    const introCards: SessionCard[] = [];
+    if (bundle?.focus) {
+      const f = bundle.focus;
+      const exampleLine = Array.isArray(f.examples) && f.examples.length
+        ? ` Examples: ${f.examples.slice(0, 4).join(", ")}.`
+        : "";
+      introCards.push({
+        key: "intro",
+        item_type: "decodable_word",
+        item_ref: "intro",
+        display: f.title ?? "Today's focus",
+        stage: "intro",
+        meta: {
+          kind: "intro",
+          concept: f.concept ?? "",
+          parent_intro: (f.parent_intro ?? "") + exampleLine,
+        },
+      });
+    }
+
+    // --- Blend ladder (phase >= 2) ---
+    const blendCards: SessionCard[] = [];
+    if (currentPhase >= 2 && Array.isArray(bundle?.blend_words)) {
+      for (const w of bundle.blend_words.slice(0, 5)) {
+        blendCards.push({ key: `b-${w}`, item_type: "decodable_word", item_ref: w, display: w, stage: "blend" });
       }
     }
 
     // --- Word practice ---
     const practiceCards: SessionCard[] = [];
-    if (allowedGraphemes.length > 0) {
-      try {
-        const res = await generateContentInternal({ ...genBase, type: "word_list", variant: "practice_words" });
-        const words: string[] = (res.words ?? []).slice(0, 8);
-        for (const w of words) {
-          practiceCards.push({
-            key: `p-w-${w}`,
-            item_type: "decodable_word",
-            item_ref: w,
-            display: w,
-            stage: "practice",
-          });
-        }
-      } catch (err) {
-        console.error("[startSession] practice words failed", err);
+    if (Array.isArray(bundle?.practice_words)) {
+      for (const w of bundle.practice_words.slice(0, 8)) {
+        practiceCards.push({ key: `p-w-${w}`, item_type: "decodable_word", item_ref: w, display: w, stage: "practice" });
       }
     }
 
     // --- Sentence (phase >= 3) ---
     const sentenceCards: SessionCard[] = [];
-    if (currentPhase >= 3 && allowedGraphemes.length > 0) {
-      try {
-        const res = await generateContentInternal({ ...genBase, type: "sentence", variant: "sentence" });
-        const sentence: string = res.sentence ?? "";
-        if (sentence) {
-          sentenceCards.push({
-            key: `s-sent`,
-            item_type: "decodable_word",
-            item_ref: sentence,
-            display: sentence,
-            stage: "sentence",
-            meta: { kind: "sentence" },
-          });
-        }
-      } catch (err) {
-        console.error("[startSession] sentence failed", err);
-      }
+    if (currentPhase >= 3 && typeof bundle?.sentence === "string" && bundle.sentence.trim()) {
+      sentenceCards.push({
+        key: `s-sent`,
+        item_type: "decodable_word",
+        item_ref: bundle.sentence,
+        display: bundle.sentence,
+        stage: "sentence",
+        meta: { kind: "sentence" },
+      });
     }
 
     // --- Mini story (phase >= 5) ---
     const storyCards: SessionCard[] = [];
-    if (currentPhase >= 5 && allowedGraphemes.length > 0) {
-      try {
-        const res = await generateContentInternal({ ...genBase, type: "story", variant: "story" });
-        const story: string = res.story ?? "";
-        if (story) {
-          storyCards.push({
-            key: `s-story`,
-            item_type: "decodable_word",
-            item_ref: story,
-            display: story,
-            stage: "story",
-            meta: { kind: "sentence" },
-          });
-        }
-      } catch (err) {
-        console.error("[startSession] story failed", err);
-      }
+    if (currentPhase >= 5 && typeof bundle?.story === "string" && bundle.story.trim()) {
+      storyCards.push({
+        key: `s-story`,
+        item_type: "decodable_word",
+        item_ref: bundle.story,
+        display: bundle.story,
+        stage: "story",
+        meta: { kind: "sentence" },
+      });
     }
 
     // --- Interference stage: only if the target has a Swedish confusable ---
@@ -374,6 +368,7 @@ export const startSession = createServerFn({ method: "POST" })
 
     // Assemble in order, attach stage_intro to the first card of each stage
     const ordered: SessionCard[] = [
+      ...introCards,
       ...warmup,
       ...targetCards,
       ...blendCards,

@@ -16,7 +16,7 @@ interface InterferencePair {
 }
 
 interface Req {
-  type: "word_list" | "sentence" | "story" | "game_words" | "pseudowords";
+  type: "word_list" | "sentence" | "story" | "game_words" | "pseudowords" | "lesson_bundle";
   allowed_graphemes: string[];
   known_heart_words: string[];
 
@@ -28,6 +28,7 @@ interface Req {
   interference_pairs?: InterferencePair[];
   strengths?: string[];                // graphemes/heart-words the learner reliably nails
   challenges?: string[];               // graphemes/heart-words that are shaky or freshly missed
+  current_phase?: number | null;       // synthetic-phonics phase, 1..5
 }
 
 const SYSTEM = `You write extremely short, calm, wholesome English reading practice for a ~7-year-old native English speaker who is being formally schooled in Swedish and is now learning to DECODE English via synthetic phonics.
@@ -53,6 +54,7 @@ function buildPrompt(r: Req): string {
   parts.push(`Allowed graphemes: [${gs}]`);
   parts.push(`Allowed heart words: [${hs}]`);
   if (r.age_years != null) parts.push(`Learner age: ~${r.age_years} years`);
+  if (r.current_phase != null) parts.push(`Current synthetic-phonics phase: ${r.current_phase}`);
   if (r.target_grapheme) {
     parts.push(`TARGET grapheme this session: "${r.target_grapheme}"${r.target_sound_label ? ` (sound: ${r.target_sound_label})` : ""}. Feature it heavily.`);
   }
@@ -88,6 +90,31 @@ function buildPrompt(r: Req): string {
       return `Produce ONE short, calm, natural decodable sentence (4-7 words) a 7-year-old would say.${common}Return JSON: {"sentence": "..."}`;
     case "story":
       return `Produce a very short calm decodable mini-story (3-5 short sentences, natural English).${common}Return JSON: {"story": "..."}`;
+    case "lesson_bundle":
+      return `Design a COMPLETE single lesson for this learner in ONE response. First DECIDE the lesson's focus area — could be the given target grapheme, a shaky pattern from challenges, a blend type they're ready for, a sound-contrast the interference list flags, or a sentence-fluency focus if they're at that phase. Then produce every component of the lesson consistent with that focus.
+
+Focus decision rules:
+- If a target grapheme is provided AND it's genuinely new/shaky, focus there.
+- Else if challenges are non-empty, pick one shaky pattern to reinforce.
+- Else pick a natural next step (a blend, a longer word, a fluency focus).
+- The "concept" is a plain-English 1-sentence description of what the child will practise.
+- "parent_intro" is 2-3 short sentences the PARENT reads/says to the child before starting — introduces the concept warmly, models the sound if relevant, mentions how it will look in words.
+- "examples" are 2-4 mouth-friendly example words featuring the focus (must be decodable with allowed graphemes).
+
+Now produce every list, keeping to the non-negotiable decodability rules.${common}Return STRICT JSON only:
+{
+  "focus": {
+    "title": "short 2-4 word label",
+    "concept": "one-sentence plain-English description of the focus",
+    "parent_intro": "2-3 short sentences the parent reads to the child",
+    "examples": ["word1","word2","word3"]
+  },
+  "blend_words": ["5 short target-featuring words easy→harder"],
+  "practice_words": ["8 decodable words, mix of target and general practice"],
+  "sentence": "ONE short natural decodable sentence (4-7 words)",
+  "story": "3-5 sentence calm decodable mini-story",
+  "flashcard_decodable": ["8 short decodable words for quick flashcard drilling"]
+}`;
   }
 }
 
@@ -122,7 +149,7 @@ Deno.serve(async (req: Request) => {
       },
       body: JSON.stringify({
         model: CLAUDE_MODEL,
-        max_tokens: 700,
+        max_tokens: body.type === "lesson_bundle" ? 2000 : 700,
         system: SYSTEM,
         messages: [{ role: "user", content: prompt }],
       }),
