@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { startSession, saveSessionEvents } from "@/lib/session.functions";
+import { getLearnerSummary } from "@/lib/learners.functions";
 import { OutcomeButtons } from "@/components/OutcomeButtons";
 import { ItemCard } from "@/components/ItemCard";
 import { requireParentAuth } from "@/lib/auth-guard";
