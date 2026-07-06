@@ -2,7 +2,7 @@
 // Produces short, decodable English reading practice tailored to the learner's
 // current level, target grapheme, recent misses, and Swedish-English interference.
 
-const CLAUDE_MODEL = "claude-sonnet-4-5";
+const CLAUDE_MODEL = "claude-sonnet-5";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
