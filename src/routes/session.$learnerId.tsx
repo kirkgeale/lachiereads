@@ -103,7 +103,48 @@ function SessionScreen() {
     return prev.stage !== current.stage ? current.stage : null;
   }, [idx, cards, current]);
 
-  if (planQ.isLoading) {
+  if (summaryQ.isLoading) {
+    return <FullScreenLoader label="Getting ready…" />;
+  }
+  if (summaryReady && !calibrated) {
+    const name = (summaryQ.data as any)?.learner?.name ?? "your child";
+    return (
+      <div className="min-h-screen p-4 md:p-8">
+        <div className="max-w-2xl mx-auto rounded-3xl bg-card border border-border/60 p-6 md:p-10 shadow-sm mt-8">
+          <button
+            onClick={() => navigate({ to: "/" })}
+            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4"
+          >
+            <ChevronLeft className="w-4 h-4" /> Home
+          </button>
+          <div className="text-xs uppercase tracking-widest text-muted-foreground mb-1">First things first</div>
+          <h1 className="text-2xl md:text-3xl font-display text-primary mb-2">
+            Let's find {name}'s starting point
+          </h1>
+          <p className="text-sm text-muted-foreground mb-6">
+            Before the first real session, tell us what {name} already knows so lessons pitch at the right level.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <button
+              onClick={() => navigate({ to: "/parent/assessment/$learnerId", params: { learnerId } })}
+              className="rounded-2xl bg-primary text-primary-foreground p-5 text-left hover:bg-primary/90"
+            >
+              <div className="font-display text-lg">Run the full reading assessment</div>
+              <div className="text-sm opacity-80">AI-guided probes, ~10 minutes.</div>
+            </button>
+            <button
+              onClick={() => navigate({ to: "/parent/quick-setup/$learnerId", params: { learnerId } })}
+              className="rounded-2xl bg-accent text-accent-foreground p-5 text-left hover:bg-accent/90"
+            >
+              <div className="font-display text-lg">Quick set-up</div>
+              <div className="text-sm opacity-80">Tick what they already know — 1 minute.</div>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+  if (planQ.isLoading || (!planQ.data && summaryReady && calibrated)) {
     return <FullScreenLoader label="Getting ready…" />;
   }
   if (planQ.isError || !current) {
