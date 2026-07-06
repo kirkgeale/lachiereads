@@ -27,12 +27,14 @@ function LearnersPage() {
   const [name, setName] = useState("");
   const [birthdate, setBirthdate] = useState("");
   const [theme, setTheme] = useState<(typeof THEMES)[number]>("meadow");
+  const [interests, setInterests] = useState("");
 
   const createMut = useMutation({
-    mutationFn: () => createFn({ data: { name, birthdate: birthdate || null, garden_theme: theme } }),
+    mutationFn: () => createFn({ data: { name, birthdate: birthdate || null, garden_theme: theme, interests: interests || null } }),
     onSuccess: () => {
       setName("");
       setBirthdate("");
+      setInterests("");
       toast.success("Learner added");
       qc.invalidateQueries({ queryKey: ["learners"] });
     },
@@ -66,6 +68,12 @@ function LearnersPage() {
             ))}
           </select>
         </div>
+        <input
+          value={interests}
+          onChange={(e) => setInterests(e.target.value)}
+          placeholder="Interests (e.g. dinosaurs, football, space)"
+          className="mt-3 w-full rounded-xl border border-input bg-background px-4 py-3"
+        />
         <button
           onClick={() => name && createMut.mutate()}
           disabled={createMut.isPending || !name}
