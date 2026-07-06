@@ -77,8 +77,7 @@ export async function generateContentInternal(a: GenArgs): Promise<any> {
     .maybeSingle();
   if (cached?.content_json) return cached.content_json;
 
-  let content: any = null;
-  try {
+  const invokeGen = async () => {
     const { data, error } = await a.supabase.functions.invoke("generate-content", {
       body: {
         type: a.type,
@@ -92,15 +91,22 @@ export async function generateContentInternal(a: GenArgs): Promise<any> {
         interference_pairs: a.interferencePairs ?? [],
         strengths: a.strengths ?? [],
         challenges: a.challenges ?? [],
+        interests: a.interests ?? null,
+        parent_observations: a.parentObservations ?? [],
       },
     });
     if (error) throw error;
-    content = data;
+    return data;
+  };
+
+  let content: any = null;
+  try {
+    content = await invokeGen();
   } catch (err) {
     console.error("[generate-content edge] error", err);
   }
 
-  // Server-side decodability validation (skipped for lesson_bundle — validated by caller)
+  // Server-side decodability validation
   let ok = false;
   if (content && a.type !== "lesson_bundle") {
     const words: string[] = [];
@@ -111,7 +117,46 @@ export async function generateContentInternal(a: GenArgs): Promise<any> {
     ok = v.ok;
     if (!ok) console.warn("[generate-content] not fully decodable, offenders:", v.offenders);
   } else if (content && a.type === "lesson_bundle") {
-    ok = true; // trust bundle; caller filters lists
+    // Filter lists in-place; regenerate sentence/story once if undecodable; drop if still bad.
+    const filterList = (arr: any): string[] => {
+      if (!Array.isArray(arr)) return [];
+      const kept: string[] = [];
+      const dropped: string[] = [];
+      for (const w of arr) {
+        if (typeof w !== "string") continue;
+        const clean = w.trim();
+        if (!clean) continue;
+        const v = validateContent([clean], a.allowedGraphemes, a.knownHeartWords);
+        if (v.ok) kept.push(clean); else dropped.push(clean);
+      }
+      if (dropped.length) console.warn("[lesson_bundle] dropped undecodable:", dropped);
+      return kept;
+    };
+    content.blend_words = filterList(content.blend_words);
+    content.practice_words = filterList(content.practice_words);
+    content.flashcard_decodable = filterList(content.flashcard_decodable);
+    if (Array.isArray(content.focus?.examples)) {
+      content.focus.examples = filterList(content.focus.examples);
+    }
+
+    const sentenceOk = (s: any) => typeof s === "string" && s.trim() &&
+      validateContent(extractWords(s), a.allowedGraphemes, a.knownHeartWords).ok;
+
+    if (!sentenceOk(content.sentence) || !sentenceOk(content.story)) {
+      console.warn("[lesson_bundle] sentence/story undecodable — regenerating once");
+      try {
+        const retry = await invokeGen();
+        if (retry) {
+          if (sentenceOk(retry.sentence)) content.sentence = retry.sentence;
+          if (sentenceOk(retry.story)) content.story = retry.story;
+        }
+      } catch (e) {
+        console.error("[lesson_bundle] regen failed", e);
+      }
+    }
+    if (!sentenceOk(content.sentence)) { console.warn("[lesson_bundle] dropping sentence"); content.sentence = null; }
+    if (!sentenceOk(content.story)) { console.warn("[lesson_bundle] dropping story"); content.story = null; }
+    ok = true;
   }
 
   if (!content || !ok) {
