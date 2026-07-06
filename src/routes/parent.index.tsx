@@ -45,7 +45,6 @@ function ParentHome() {
     got_it: s.got_it,
     self_corrected: (s as any).self_corrected ?? 0,
     prompted: (s as any).prompted ?? 0,
-    hesitated: s.hesitated,
     missed: s.missed,
   }));
 
