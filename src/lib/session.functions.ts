@@ -4,6 +4,7 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { applyOutcome } from "./srs";
 import type { SessionCard, SessionPlan, QueuedEvent, Outcome, SessionStage, StageIntro } from "./types";
 import { generateContentInternal } from "./content-helper";
+import { selectNextTarget } from "./target-selection";
 
 const today = () => new Date().toISOString().slice(0, 10);
 
