@@ -4,6 +4,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { startAssessment, finalizeAssessment, listAssessments, getReportContext } from "@/lib/assessment.functions";
 import { supabase } from "@/integrations/supabase/client";
+import { buildFallbackReport, normalizeAssessmentReport } from "@/lib/assessment-core";
 import { toast } from "sonner";
 import { ClipboardCheck, ChevronLeft, Check, RotateCcw, MessageCircle, X, SkipForward, Sparkles, Loader2 } from "lucide-react";
 import { Card, EmptyState } from "./parent.index";
@@ -23,28 +24,6 @@ type Probe = {
   notes?: string;
 };
 type Outcome = "correct" | "self_corrected" | "prompted" | "missed" | "skipped";
-
-function cleanString(value: unknown) {
-  return typeof value === "string" ? value.trim() : "";
-}
-
-function cleanList(value: unknown) {
-  return Array.isArray(value) ? value.map(cleanString).filter(Boolean) : [];
-}
-
-function normalizeReport(report: any) {
-  const normalized = {
-    ...report,
-    plain_summary: cleanString(report?.plain_summary ?? report?.summary),
-    what_they_can_do: cleanList(report?.what_they_can_do ?? report?.strengths),
-    working_on: cleanList(report?.working_on ?? report?.focus_areas),
-    not_yet: cleanList(report?.not_yet),
-    parent_actions_this_week: cleanList(report?.parent_actions_this_week ?? report?.next_steps),
-    next_focus: cleanString(report?.next_focus),
-  };
-  if (!normalized.plain_summary) throw new Error("The report came back incomplete. Please try Generate report again.");
-  return normalized;
-}
 
 function AssessmentPage() {
   const { learnerId } = Route.useParams();
@@ -85,11 +64,18 @@ function AssessmentPage() {
       });
       const reportBody: Record<string, unknown> = { action: "report", learner, results: payload };
       if (previous_assessment) reportBody.previous_assessment = previous_assessment;
-      const { data: fnRes, error: fnErr } = await supabase.functions.invoke("assess-reading", {
-        body: reportBody,
-      });
-      if (fnErr) throw new Error(fnErr.message ?? "Report generation failed");
-      const report = normalizeReport(fnRes);
+      let report: any;
+      const fallback = buildFallbackReport(learner, payload, previous_assessment);
+      try {
+        const { data: fnRes, error: fnErr } = await supabase.functions.invoke("assess-reading", {
+          body: reportBody,
+        });
+        if (fnErr) throw new Error(fnErr.message ?? "Report generation failed");
+        report = normalizeAssessmentReport(fnRes, fallback);
+      } catch (err) {
+        console.error("[assessment] report generation failed; saving evidence-based fallback", err);
+        report = fallback;
+      }
       return finalizeFn({
         data: { assessment_id: session!.assessment_id, learner_id: learnerId, results: payload, report },
       });
@@ -286,6 +272,14 @@ function AssessmentPage() {
                   {new Date(a.created_at).toLocaleString()} {a.applied ? "· applied" : "· not applied"}
                 </div>
                 {a.summary && <p className="text-sm text-foreground/90">{a.summary}</p>}
+                {a.report_json && (
+                  <button
+                    onClick={() => setReport(normalizeAssessmentReport(a.report_json))}
+                    className="mt-2 text-xs font-medium text-primary hover:underline"
+                  >
+                    View full report
+                  </button>
+                )}
               </li>
             ))}
           </ul>

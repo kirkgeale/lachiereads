@@ -15,14 +15,16 @@ export interface NextTarget {
 }
 
 export async function selectNextTarget(supabase: any, learner_id: string): Promise<NextTarget | null> {
-  const { data: learning } = await supabase
+  const { data: learningRows, error: learningError } = await supabase
     .from("learner_gpc_status")
     .select("gpc_id, gpcs(id, grapheme, sound_label, example_word, order_index)")
     .eq("learner_id", learner_id)
     .eq("status", "learning")
-    .order("gpcs(order_index)", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+    .limit(50);
+  if (learningError) throw new Error(learningError.message);
+  const learning = [...(learningRows ?? [])].sort(
+    (a: any, b: any) => ((a.gpcs?.order_index ?? 0) as number) - ((b.gpcs?.order_index ?? 0) as number),
+  )[0];
 
   if (learning) {
     return {
@@ -33,22 +35,25 @@ export async function selectNextTarget(supabase: any, learner_id: string): Promi
     };
   }
 
-  const { data: next } = await supabase
+  const { data: nextRows, error: nextError } = await supabase
     .from("learner_gpc_status")
     .select("gpc_id, gpcs(id, grapheme, sound_label, example_word, order_index)")
     .eq("learner_id", learner_id)
     .eq("status", "not_started")
-    .order("gpcs(order_index)", { ascending: true })
-    .limit(1)
-    .maybeSingle();
+    .limit(100);
+  if (nextError) throw new Error(nextError.message);
+  const next = [...(nextRows ?? [])].sort(
+    (a: any, b: any) => ((a.gpcs?.order_index ?? 0) as number) - ((b.gpcs?.order_index ?? 0) as number),
+  )[0];
 
   if (!next) return null;
 
-  await supabase
+  const { error: updateError } = await supabase
     .from("learner_gpc_status")
     .update({ status: "learning" })
     .eq("learner_id", learner_id)
     .eq("gpc_id", next.gpc_id);
+  if (updateError) throw new Error(updateError.message);
 
   return {
     id: next.gpc_id,

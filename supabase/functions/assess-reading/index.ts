@@ -41,6 +41,50 @@ interface ProbeResult extends Probe {
   outcome: "correct" | "hesitated" | "missed" | "skipped";
 }
 
+function buildDeterministicProbes(learner: LearnerCtx): Probe[] {
+  const catalog = [...(learner.all_graphemes ?? [])].sort((a: any, b: any) => (a.order_index ?? 0) - (b.order_index ?? 0));
+  const used = new Set<string>();
+  const probes: Probe[] = [];
+  const add = (probe: Omit<Probe, "id">, targetKey?: string) => {
+    const key = (targetKey ?? probe.target_grapheme ?? probe.target_heart_word ?? "").toLowerCase();
+    if (key && used.has(key)) return;
+    if (key) used.add(key);
+    probes.push({ ...probe, id: `p${probes.length + 1}` });
+  };
+  const byPhase = (min: number, max: number) => catalog.filter((g) => g.phase >= min && g.phase <= max);
+  const early = byPhase(1, 2);
+  const phaseThree = byPhase(3, 3);
+  const later = byPhase(4, 9);
+
+  for (const g of early.filter((g) => /^[a-z]$/i.test(g.grapheme)).slice(0, 6)) {
+    add({ kind: "grapheme_sound", prompt: g.grapheme, target_grapheme: g.grapheme, difficulty: 1, notes: `listen for ${g.sound_label}` });
+  }
+  for (const g of early) {
+    if (probes.filter((p) => p.kind === "cvc_word").length >= 5) break;
+    add({ kind: "cvc_word", prompt: g.example_word, target_grapheme: g.grapheme, difficulty: 2, notes: `listen for ${g.sound_label}` });
+  }
+  for (const g of phaseThree) {
+    if (probes.filter((p) => p.difficulty === 3).length >= 7) break;
+    add({ kind: g.grapheme.length > 1 ? "digraph_word" : "grapheme_sound", prompt: g.example_word, target_grapheme: g.grapheme, difficulty: 3, notes: `listen for ${g.sound_label}` });
+  }
+  for (const g of later) {
+    if (probes.filter((p) => p.difficulty >= 4 && p.kind !== "heart_word").length >= 7) break;
+    add({ kind: g.grapheme.includes("_") ? "vcv_word" : "digraph_word", prompt: g.example_word, target_grapheme: g.grapheme, difficulty: g.phase >= 5 ? 5 : 4, notes: `listen for ${g.sound_label}` });
+  }
+  for (const word of (learner.all_heart_words ?? []).slice(0, 4)) {
+    add({ kind: "heart_word", prompt: word, target_heart_word: word, difficulty: 2, notes: "word recognition" }, `heart:${word}`);
+  }
+  const sentenceWord = early.find((g) => g.example_word)?.example_word ?? catalog[0]?.example_word ?? "it";
+  const secondWord = phaseThree.find((g) => g.example_word)?.example_word ?? later.find((g) => g.example_word)?.example_word ?? sentenceWord;
+  add({ kind: "sentence", prompt: `I can see ${sentenceWord}.`, difficulty: 3, notes: "listen for smooth word-by-word reading" });
+  add({ kind: "sentence", prompt: `The ${secondWord} is here.`, difficulty: 4, notes: "listen for independence and fluency" });
+  for (const g of catalog) {
+    if (probes.length >= 24) break;
+    add({ kind: g.phase <= 2 ? "cvc_word" : "digraph_word", prompt: g.example_word || g.grapheme, target_grapheme: g.grapheme, difficulty: Math.min(5, Math.max(1, g.phase)), notes: `listen for ${g.sound_label}` });
+  }
+  return probes.slice(0, 32);
+}
+
 const PLAN_SYSTEM = `You are a reading-assessment expert grounded in synthetic phonics (Letters and Sounds phases 2-5, Reading Rope, UK Phonics Screening Check, and one-to-one running-record procedure). You design a THOROUGH battery of probes to reliably establish a young learner's decoding level.
 
 Rules:
@@ -159,22 +203,84 @@ function parseJson(text: string): any {
   try {
     return JSON.parse(clean);
   } catch (firstErr) {
-    const start = clean.indexOf("{");
-    const end = clean.lastIndexOf("}");
-    if (start === -1 || end === -1 || end <= start) {
-      throw new Error(`failed to parse JSON from model output: ${String((firstErr as Error).message ?? firstErr)}`);
-    }
-    clean = clean
-      .slice(start, end + 1)
-      .replace(/,\s*([}\]])/g, "$1")
-      .replace(/[“”]/g, '"')
-      .replace(/[‘’]/g, "'");
+    const extracted = extractFirstJsonObject(clean);
+    if (!extracted) throw new Error(`failed to parse JSON from model output: ${String((firstErr as Error).message ?? firstErr)}`);
+    clean = repairJson(extracted);
     try {
       return JSON.parse(clean);
     } catch (secondErr) {
       throw new Error(`failed to parse JSON from model output: ${String((secondErr as Error).message ?? secondErr)}`);
     }
   }
+}
+
+function extractFirstJsonObject(text: string): string | null {
+  const start = text.indexOf("{");
+  if (start === -1) return null;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (ch === "\\") {
+      escaped = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (ch === "{") depth++;
+    if (ch === "}") {
+      depth--;
+      if (depth === 0) return text.slice(start, i + 1);
+    }
+  }
+  return text.slice(start);
+}
+
+function repairJson(json: string): string {
+  let clean = json
+    .replace(/,\s*([}\]])/g, "$1")
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'");
+  let braces = 0;
+  let brackets = 0;
+  let inString = false;
+  let escaped = false;
+  for (const ch of clean) {
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (ch === "\\") {
+      escaped = true;
+      continue;
+    }
+    if (ch === '"') {
+      inString = !inString;
+      continue;
+    }
+    if (inString) continue;
+    if (ch === "{") braces++;
+    if (ch === "}") braces--;
+    if (ch === "[") brackets++;
+    if (ch === "]") brackets--;
+  }
+  while (brackets > 0) {
+    clean += "]";
+    brackets--;
+  }
+  while (braces > 0) {
+    clean += "}";
+    braces--;
+  }
+  return clean;
 }
 
 function asString(value: unknown, fallback: string): string {
@@ -270,22 +376,7 @@ Deno.serve(async (req: Request) => {
     const body = await req.json();
     if (body.action === "plan") {
       const learner = body.learner as LearnerCtx;
-      const userMsg =
-        `Learner context:\n` +
-        `- Name: ${learner.name}\n` +
-        `- Age (years): ${learner.age_years ?? "unknown"}\n` +
-        `- Known graphemes (any status): [${learner.known_graphemes.join(", ")}]\n` +
-        `- Secure graphemes: [${learner.secure_graphemes.join(", ")}]\n` +
-        `- Known heart words: [${learner.known_heart_words.join(", ")}]\n` +
-        `- Swedish-English interference to probe:\n` +
-        learner.interference_pairs.map((p) => `    ${p.grapheme}: Swedish=${p.swedish_value} English=${p.english_value}`).join("\n") + "\n" +
-        `\nAvailable grapheme catalog (grapheme | sound | phase | example):\n` +
-        learner.all_graphemes.map((g) => `  ${g.grapheme} | ${g.sound_label} | Phase ${g.phase} | ${g.example_word}`).join("\n") + "\n" +
-        `\nAvailable heart words: [${learner.all_heart_words.join(", ")}]\n` +
-        `\nDesign the probe battery now.`;
-      const text = await callClaude(PLAN_SYSTEM, userMsg);
-      const parsed = parseJson(text);
-      return new Response(JSON.stringify(parsed), {
+      return new Response(JSON.stringify({ probes: buildDeterministicProbes(learner) }), {
         status: 200,
         headers: { ...corsHeaders, "content-type": "application/json" },
       });
