@@ -58,15 +58,18 @@ function LearnersPage() {
             onChange={(e) => setBirthdate(e.target.value)}
             className="rounded-xl border border-input bg-background px-4 py-3"
           />
-          <select
-            value={theme}
-            onChange={(e) => setTheme(e.target.value as any)}
-            className="rounded-xl border border-input bg-background px-4 py-3"
-          >
-            {THEMES.map((t) => (
-              <option key={t} value={t}>{t}</option>
-            ))}
-          </select>
+          <div>
+            <label className="text-xs text-muted-foreground mb-1 block">Garden theme</label>
+            <select
+              value={theme}
+              onChange={(e) => setTheme(e.target.value as any)}
+              className="w-full rounded-xl border border-input bg-background px-4 py-3"
+            >
+              {THEMES.map((t) => (
+                <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>
+              ))}
+            </select>
+          </div>
         </div>
         <input
           value={interests}
