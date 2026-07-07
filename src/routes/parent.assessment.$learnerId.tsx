@@ -54,10 +54,19 @@ function AssessmentPage() {
   });
 
   const finalMut = useMutation({
-    mutationFn: (payload: (Probe & { outcome: Outcome })[]) =>
-      finalizeFn({
-        data: { assessment_id: session!.assessment_id, learner_id: learnerId, results: payload },
-      }),
+    mutationFn: async (payload: (Probe & { outcome: Outcome })[]) => {
+      // Fetch learner context (small), then call the AI edge function directly
+      // from the browser to avoid the ~30s Cloudflare Worker outbound-fetch cap.
+      const { learner } = await contextFn({ data: { learner_id: learnerId } });
+      const { data: fnRes, error: fnErr } = await supabase.functions.invoke("assess-reading", {
+        body: { action: "report", learner, results: payload },
+      });
+      if (fnErr) throw new Error(fnErr.message ?? "Report generation failed");
+      const report = fnRes ?? {};
+      return finalizeFn({
+        data: { assessment_id: session!.assessment_id, learner_id: learnerId, results: payload, report },
+      });
+    },
     onSuccess: (r) => {
       setReport(r.report);
       toast.success("Assessment saved — learner plan updated.");
