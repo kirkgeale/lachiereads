@@ -96,11 +96,15 @@ function AssessmentPage() {
     const workingOn = report.working_on ?? report.focus_areas ?? [];
     const notYet = report.not_yet ?? [];
     const actions = report.parent_actions_this_week ?? report.next_steps ?? [];
+    const nextFocus = report.next_focus;
     return (
       <div className="space-y-4">
         <Header title="Assessment report" onBack={() => setReport(null)} backLabel="Assessment home" />
         {plainSummary && (
           <Card title="How the reading is going">
+            <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">{plainSummary}</p>
+          </Card>
+        )}
             <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">{plainSummary}</p>
           </Card>
         )}
