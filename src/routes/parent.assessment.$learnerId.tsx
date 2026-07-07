@@ -29,6 +29,7 @@ function AssessmentPage() {
   const navigate = useNavigate();
   const startFn = useServerFn(startAssessment);
   const finalizeFn = useServerFn(finalizeAssessment);
+  const contextFn = useServerFn(getReportContext);
   const listFn = useServerFn(listAssessments);
 
   const historyQ = useQuery({
