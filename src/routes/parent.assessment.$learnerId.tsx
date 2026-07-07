@@ -24,6 +24,28 @@ type Probe = {
 };
 type Outcome = "correct" | "self_corrected" | "prompted" | "missed" | "skipped";
 
+function cleanString(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function cleanList(value: unknown) {
+  return Array.isArray(value) ? value.map(cleanString).filter(Boolean) : [];
+}
+
+function normalizeReport(report: any) {
+  const normalized = {
+    ...report,
+    plain_summary: cleanString(report?.plain_summary ?? report?.summary),
+    what_they_can_do: cleanList(report?.what_they_can_do ?? report?.strengths),
+    working_on: cleanList(report?.working_on ?? report?.focus_areas),
+    not_yet: cleanList(report?.not_yet),
+    parent_actions_this_week: cleanList(report?.parent_actions_this_week ?? report?.next_steps),
+    next_focus: cleanString(report?.next_focus),
+  };
+  if (!normalized.plain_summary) throw new Error("The report came back incomplete. Please try Generate report again.");
+  return normalized;
+}
+
 function AssessmentPage() {
   const { learnerId } = Route.useParams();
   const navigate = useNavigate();
@@ -67,7 +89,7 @@ function AssessmentPage() {
         body: reportBody,
       });
       if (fnErr) throw new Error(fnErr.message ?? "Report generation failed");
-      const report = fnRes ?? {};
+      const report = normalizeReport(fnRes);
       return finalizeFn({
         data: { assessment_id: session!.assessment_id, learner_id: learnerId, results: payload, report },
       });
