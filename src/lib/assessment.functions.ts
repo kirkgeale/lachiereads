@@ -2,87 +2,15 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { selectNextTarget } from "./target-selection";
-
-interface Probe {
-  id: string;
-  kind: string;
-  prompt: string;
-  target_grapheme?: string;
-  target_heart_word?: string;
-  difficulty: number;
-  notes?: string;
-}
-
-interface ProbeResult extends Probe {
-  outcome: "correct" | "self_corrected" | "prompted" | "missed" | "skipped";
-}
-
-function ageYears(birthdate: string | null): number | null {
-  if (!birthdate) return null;
-  const b = new Date(birthdate);
-  const now = new Date();
-  const ms = now.getTime() - b.getTime();
-  return Math.floor(ms / (365.25 * 86400000));
-}
-
-async function loadContext(supabase: any, learner_id: string) {
-  const [{ data: learner }, { data: gpcs }, { data: gpcStatus }, { data: heartWords }, { data: hwStatus }, { data: interference }] =
-    await Promise.all([
-      supabase.from("learners").select("name, birthdate, garden_theme").eq("id", learner_id).single(),
-      supabase.from("gpcs").select("id, grapheme, sound_label, phase, example_word, order_index").order("order_index"),
-      supabase.from("learner_gpc_status").select("gpc_id, status").eq("learner_id", learner_id),
-      supabase.from("heart_words").select("id, word, order_index").order("order_index"),
-      supabase.from("learner_heart_word_status").select("heart_word_id, status").eq("learner_id", learner_id),
-      supabase.from("interference_items").select("grapheme, swedish_value, english_value"),
-    ]);
-  const statusById = new Map<string, string>((gpcStatus ?? []).map((r: any) => [r.gpc_id, r.status]));
-  const hwStatusById = new Map<string, string>((hwStatus ?? []).map((r: any) => [r.heart_word_id, r.status]));
-  const known_graphemes = (gpcs ?? []).filter((g: any) => (statusById.get(g.id) ?? "not_started") !== "not_started").map((g: any) => g.grapheme);
-  const secure_graphemes = (gpcs ?? []).filter((g: any) => statusById.get(g.id) === "secure").map((g: any) => g.grapheme);
-  const known_heart_words = (heartWords ?? []).filter((h: any) => (hwStatusById.get(h.id) ?? "not_started") !== "not_started").map((h: any) => h.word);
-  return {
-    learner_ctx: {
-      name: learner?.name ?? "Learner",
-      age_years: ageYears(learner?.birthdate ?? null),
-      garden_theme: learner?.garden_theme,
-      known_graphemes,
-      secure_graphemes,
-      known_heart_words,
-      interference_pairs: interference ?? [],
-      all_graphemes: (gpcs ?? []).map((g: any) => ({
-        grapheme: g.grapheme, sound_label: g.sound_label, phase: g.phase, example_word: g.example_word,
-      })),
-      all_heart_words: (heartWords ?? []).map((h: any) => h.word),
-    },
-    gpcs: gpcs ?? [],
-    heartWords: heartWords ?? [],
-  };
-}
-
-async function loadPreviousAssessment(supabase: any, learner_id: string, exclude_id?: string) {
-  let q = supabase
-    .from("assessment_reports")
-    .select("id, created_at, estimated_level, summary, report_json")
-    .eq("learner_id", learner_id)
-    .eq("applied", true)
-    .order("created_at", { ascending: false })
-    .limit(1);
-  if (exclude_id) q = q.neq("id", exclude_id);
-  const { data } = await q.maybeSingle();
-  if (!data) return null;
-  const rj = (data as any).report_json ?? {};
-  const days_since = Math.max(
-    0,
-    Math.floor((Date.now() - new Date((data as any).created_at).getTime()) / 86400000),
-  );
-  return {
-    estimated_level: (data as any).estimated_level ?? null,
-    summary: (data as any).summary ?? null,
-    previously_working_on: Array.isArray(rj.working_on) ? rj.working_on : [],
-    previously_not_yet: Array.isArray(rj.not_yet) ? rj.not_yet : [],
-    days_since,
-  };
-}
+import {
+  buildAssessmentProbes,
+  formatNextFocus,
+  loadAssessmentContext,
+  loadPreviousAssessment,
+  normalizeAssessmentReport,
+  type AssessmentProbe as Probe,
+  type AssessmentProbeResult as ProbeResult,
+} from "./assessment-core";
 
 // Start an assessment: get probe list from Claude and save an empty record
 export const startAssessment = createServerFn({ method: "POST" })
@@ -90,13 +18,8 @@ export const startAssessment = createServerFn({ method: "POST" })
   .inputValidator((d: { learner_id: string }) => z.object({ learner_id: z.string().uuid() }).parse(d))
   .handler(async ({ data, context }): Promise<{ assessment_id: string; probes: Probe[] }> => {
     const { supabase } = context;
-    const { learner_ctx } = await loadContext(supabase, data.learner_id);
-
-    const { data: fnRes, error: fnErr } = await supabase.functions.invoke("assess-reading", {
-      body: { action: "plan", learner: learner_ctx },
-    });
-    if (fnErr) throw new Error(fnErr.message);
-    const probes: Probe[] = fnRes?.probes ?? [];
+    const { learner_ctx } = await loadAssessmentContext(supabase, data.learner_id);
+    const probes = buildAssessmentProbes(learner_ctx);
     if (!probes.length) throw new Error("Assessment planner returned no probes.");
 
     const { data: row, error: insErr } = await supabase
@@ -119,7 +42,7 @@ export const getReportContext = createServerFn({ method: "POST" })
     z.object({ learner_id: z.string().uuid(), current_assessment_id: z.string().uuid().optional() }).parse(d),
   )
   .handler(async ({ data, context }) => {
-    const { learner_ctx } = await loadContext(context.supabase, data.learner_id);
+    const { learner_ctx } = await loadAssessmentContext(context.supabase, data.learner_id);
     const previous_assessment = await loadPreviousAssessment(
       context.supabase,
       data.learner_id,
@@ -157,9 +80,9 @@ export const finalizeAssessment = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
-    const { learner_ctx, gpcs, heartWords } = await loadContext(supabase, data.learner_id);
+    const { learner_ctx, gpcs, heartWords } = await loadAssessmentContext(supabase, data.learner_id);
 
-    const report = { ...(data.report ?? {}) };
+    const report = normalizeAssessmentReport(data.report ?? undefined);
     const gpcUpdates: { grapheme: string; status: string }[] = report.gpc_updates ?? [];
     const hwUpdates: { word: string; status: string }[] = report.heart_word_updates ?? [];
 
@@ -210,6 +133,7 @@ export const finalizeAssessment = createServerFn({ method: "POST" })
     // Ask Claude to narrate that specific grapheme as next_focus — not to pick one.
     const nextTarget = await selectNextTarget(supabase, data.learner_id);
     if (nextTarget) {
+      report.next_focus = formatNextFocus(nextTarget);
       try {
         const { data: nfRes, error: nfErr } = await supabase.functions.invoke("assess-reading", {
           body: {
@@ -239,8 +163,8 @@ export const finalizeAssessment = createServerFn({ method: "POST" })
       .from("assessment_reports")
       .update({
         events_json: data.results,
-        report_json: report,
-        summary: report.plain_summary ?? report.summary ?? null,
+        report_json: report as any,
+        summary: report.plain_summary ?? null,
         estimated_level: report.estimated_level ?? null,
         applied: true,
       })
@@ -255,7 +179,7 @@ export const listAssessments = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { data: rows } = await context.supabase
       .from("assessment_reports")
-      .select("id, created_at, estimated_level, summary, applied")
+      .select("id, created_at, estimated_level, summary, applied, report_json")
       .eq("learner_id", data.learner_id)
       .order("created_at", { ascending: false })
       .limit(20);
