@@ -327,7 +327,13 @@ Deno.serve(async (req: Request) => {
         ).join("\n") +
         `\n\nWrite the report and propose updates now. Remember: a miss on a probe well above the child's working level is a ceiling-probe miss and belongs in not_yet neutrally, not in working_on. For next_focus: this call does NOT include actual_next_target — write next_focus as a general "keep reading together" note. The app will overwrite it with a targeted version after the real next-target is computed.`;
       const text = await callClaude(REPORT_SYSTEM, userMsg);
-      const parsed = parseJson(text);
+      let parsed: ReportJson;
+      try {
+        parsed = normalizeReport(parseJson(text), learner, results, prev);
+      } catch (err) {
+        console.error("[assess-reading] report JSON parse/validation failed", err);
+        parsed = fallbackReport(learner, results, prev);
+      }
       return new Response(JSON.stringify(parsed), {
         status: 200,
         headers: { ...corsHeaders, "content-type": "application/json" },
