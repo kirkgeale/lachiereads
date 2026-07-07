@@ -83,10 +83,21 @@ export const startAssessment = createServerFn({ method: "POST" })
     return { assessment_id: row.id, probes };
   });
 
-// Finalise: get report from Claude, save it, apply status updates
+// Return the learner context used to build the AI report prompt.
+// The browser invokes the edge function directly (bypassing the ~30s
+// Cloudflare Worker outbound-fetch cap) and then posts the report back.
+export const getReportContext = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: { learner_id: string }) => z.object({ learner_id: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { learner_ctx } = await loadContext(context.supabase, data.learner_id);
+    return { learner: learner_ctx };
+  });
+
+// Persist an already-generated report and apply status updates.
 export const finalizeAssessment = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { assessment_id: string; learner_id: string; results: ProbeResult[] }) =>
+  .inputValidator((d: { assessment_id: string; learner_id: string; results: ProbeResult[]; report: any }) =>
     z
       .object({
         assessment_id: z.string().uuid(),
@@ -103,23 +114,18 @@ export const finalizeAssessment = createServerFn({ method: "POST" })
             outcome: z.enum(["correct", "self_corrected", "prompted", "missed", "skipped", "hesitated"]),
           }),
         ),
+        report: z.any(),
       })
       .parse(d),
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
-    const { learner_ctx, gpcs, heartWords } = await loadContext(supabase, data.learner_id);
+    const { gpcs, heartWords } = await loadContext(supabase, data.learner_id);
 
-    const { data: fnRes, error: fnErr } = await supabase.functions.invoke("assess-reading", {
-      body: { action: "report", learner: learner_ctx, results: data.results },
-    });
-    if (fnErr) throw new Error(fnErr.message);
-
-    const report = fnRes ?? {};
+    const report = data.report ?? {};
     const gpcUpdates: { grapheme: string; status: string }[] = report.gpc_updates ?? [];
     const hwUpdates: { word: string; status: string }[] = report.heart_word_updates ?? [];
 
-    // Apply GPC updates
     const gpcByGrapheme = new Map<string, string>((gpcs as any[]).map((g) => [g.grapheme, g.id]));
     const hwByWord = new Map<string, string>((heartWords as any[]).map((h) => [h.word.toLowerCase(), h.id]));
 
@@ -161,10 +167,8 @@ export const finalizeAssessment = createServerFn({ method: "POST" })
         .eq("heart_word_id", id);
     }
 
-    // Wipe cached generated content — level shifted
     await supabase.from("generated_content").delete().eq("learner_id", data.learner_id);
 
-    // Save the report
     await supabase
       .from("assessment_reports")
       .update({
