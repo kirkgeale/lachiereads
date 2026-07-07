@@ -55,11 +55,16 @@ function AssessmentPage() {
 
   const finalMut = useMutation({
     mutationFn: async (payload: (Probe & { outcome: Outcome })[]) => {
-      // Fetch learner context (small), then call the AI edge function directly
-      // from the browser to avoid the ~30s Cloudflare Worker outbound-fetch cap.
-      const { learner } = await contextFn({ data: { learner_id: learnerId } });
+      // Fetch learner context + prior-assessment comparison payload, then call
+      // the AI edge function directly from the browser to avoid the ~30s
+      // Cloudflare Worker outbound-fetch cap.
+      const { learner, previous_assessment } = await contextFn({
+        data: { learner_id: learnerId, current_assessment_id: session!.assessment_id },
+      });
+      const reportBody: Record<string, unknown> = { action: "report", learner, results: payload };
+      if (previous_assessment) reportBody.previous_assessment = previous_assessment;
       const { data: fnRes, error: fnErr } = await supabase.functions.invoke("assess-reading", {
-        body: { action: "report", learner, results: payload },
+        body: reportBody,
       });
       if (fnErr) throw new Error(fnErr.message ?? "Report generation failed");
       const report = fnRes ?? {};
