@@ -105,9 +105,6 @@ function AssessmentPage() {
             <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">{plainSummary}</p>
           </Card>
         )}
-            <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">{plainSummary}</p>
-          </Card>
-        )}
         {canDo.length > 0 && (
           <Card title="What they can do">
             <ul className="list-disc pl-5 space-y-1.5 text-sm text-foreground/90">
@@ -127,6 +124,11 @@ function AssessmentPage() {
             <ul className="list-disc pl-5 space-y-1.5 text-sm text-foreground/90">
               {notYet.map((s: string, i: number) => <li key={i}>{s}</li>)}
             </ul>
+          </Card>
+        )}
+        {nextFocus && (
+          <Card title="What's next">
+            <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">{nextFocus}</p>
           </Card>
         )}
         {actions.length > 0 && (
