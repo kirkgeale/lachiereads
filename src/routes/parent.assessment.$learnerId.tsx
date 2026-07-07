@@ -203,11 +203,9 @@ function AssessmentPage() {
             </div>
             <div className="rounded-2xl bg-muted/60 p-8 text-center flex flex-col items-center gap-2">
               <div className="font-display text-5xl md:text-6xl text-primary">
-                {current.kind === "sentence"
-                  ? current.prompt.replace(/\b([a-z])/g, (m) => m.toUpperCase())
-                  : current.prompt.toUpperCase()}
+                {current.prompt.toUpperCase()}
               </div>
-              {current.kind !== "sentence" && current.prompt.toUpperCase() !== current.prompt.toLowerCase() && (
+              {current.prompt.toUpperCase() !== current.prompt.toLowerCase() && (
                 <div className="text-2xl text-muted-foreground tracking-wide">{current.prompt.toLowerCase()}</div>
               )}
             </div>
