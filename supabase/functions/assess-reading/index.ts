@@ -104,9 +104,17 @@ The app has ALREADY chosen the exact letter or letter-team to focus on next — 
 
 Return STRICT JSON only, no code fences: { "next_focus": "..." }`;
 
-async function callClaude(system: string, user: string): Promise<string> {
+async function callClaude(system: string, user: string, opts?: { thinking?: boolean; max_tokens?: number }): Promise<string> {
   const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
   if (!apiKey) throw new Error("missing ANTHROPIC_API_KEY");
+  const useThinking = opts?.thinking !== false;
+  const body: Record<string, unknown> = {
+    model: CLAUDE_MODEL,
+    max_tokens: opts?.max_tokens ?? MAX_TOKENS,
+    system,
+    messages: [{ role: "user", content: user }],
+  };
+  if (useThinking) body.thinking = { type: "enabled", budget_tokens: THINKING_BUDGET };
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
@@ -114,13 +122,7 @@ async function callClaude(system: string, user: string): Promise<string> {
       "x-api-key": apiKey,
       "anthropic-version": "2023-06-01",
     },
-    body: JSON.stringify({
-      model: CLAUDE_MODEL,
-      max_tokens: MAX_TOKENS,
-      thinking: { type: "enabled", budget_tokens: THINKING_BUDGET },
-      system,
-      messages: [{ role: "user", content: user }],
-    }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) {
     const t = await res.text();
@@ -128,7 +130,6 @@ async function callClaude(system: string, user: string): Promise<string> {
     throw new Error(`anthropic ${res.status}: ${t.slice(0, 200)}`);
   }
   const payload = await res.json();
-  // Extended thinking returns blocks: pick the first "text" block
   const blocks: any[] = payload?.content ?? [];
   const text = blocks.find((b) => b?.type === "text")?.text ?? "";
   return text;
