@@ -114,7 +114,10 @@ async function callClaude(system: string, user: string, opts?: { thinking?: bool
     system,
     messages: [{ role: "user", content: user }],
   };
-  if (useThinking) body.thinking = { type: "enabled", budget_tokens: THINKING_BUDGET };
+  if (useThinking) {
+    body.thinking = { type: "adaptive" };
+    body.output_config = { effort: "high" };
+  }
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
     headers: {
