@@ -55,11 +55,16 @@ function AssessmentPage() {
 
   const finalMut = useMutation({
     mutationFn: async (payload: (Probe & { outcome: Outcome })[]) => {
-      // Fetch learner context (small), then call the AI edge function directly
-      // from the browser to avoid the ~30s Cloudflare Worker outbound-fetch cap.
-      const { learner } = await contextFn({ data: { learner_id: learnerId } });
+      // Fetch learner context + prior-assessment comparison payload, then call
+      // the AI edge function directly from the browser to avoid the ~30s
+      // Cloudflare Worker outbound-fetch cap.
+      const { learner, previous_assessment } = await contextFn({
+        data: { learner_id: learnerId, current_assessment_id: session!.assessment_id },
+      });
+      const reportBody: Record<string, unknown> = { action: "report", learner, results: payload };
+      if (previous_assessment) reportBody.previous_assessment = previous_assessment;
       const { data: fnRes, error: fnErr } = await supabase.functions.invoke("assess-reading", {
-        body: { action: "report", learner, results: payload },
+        body: reportBody,
       });
       if (fnErr) throw new Error(fnErr.message ?? "Report generation failed");
       const report = fnRes ?? {};
@@ -91,6 +96,7 @@ function AssessmentPage() {
     const workingOn = report.working_on ?? report.focus_areas ?? [];
     const notYet = report.not_yet ?? [];
     const actions = report.parent_actions_this_week ?? report.next_steps ?? [];
+    const nextFocus = report.next_focus;
     return (
       <div className="space-y-4">
         <Header title="Assessment report" onBack={() => setReport(null)} backLabel="Assessment home" />
@@ -118,6 +124,11 @@ function AssessmentPage() {
             <ul className="list-disc pl-5 space-y-1.5 text-sm text-foreground/90">
               {notYet.map((s: string, i: number) => <li key={i}>{s}</li>)}
             </ul>
+          </Card>
+        )}
+        {nextFocus && (
+          <Card title="What's next">
+            <p className="text-sm text-foreground/90 whitespace-pre-wrap leading-relaxed">{nextFocus}</p>
           </Card>
         )}
         {actions.length > 0 && (
