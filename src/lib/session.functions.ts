@@ -112,47 +112,9 @@ export const startSession = createServerFn({ method: "POST" })
     warmup.splice(5);
 
     // --- Target: pick a "learning" GPC, else promote next "not_started" ---
-    const { data: learningGpc } = await supabase
-      .from("learner_gpc_status")
-      .select("gpc_id, gpcs(id, grapheme, sound_label, example_word, order_index, phase)")
-      .eq("learner_id", data.learner_id)
-      .eq("status", "learning")
-      .order("gpcs(order_index)", { ascending: true })
-      .limit(1)
-      .maybeSingle();
-
-    let targetGpc = learningGpc
-      ? {
-          id: learningGpc.gpc_id,
-          grapheme: (learningGpc as any).gpcs.grapheme,
-          sound_label: (learningGpc as any).gpcs.sound_label,
-          example_word: (learningGpc as any).gpcs.example_word,
-        }
-      : null;
-
-    if (!targetGpc) {
-      const { data: nextGpc } = await supabase
-        .from("learner_gpc_status")
-        .select("gpc_id, gpcs(id, grapheme, sound_label, example_word, order_index)")
-        .eq("learner_id", data.learner_id)
-        .eq("status", "not_started")
-        .order("gpcs(order_index)", { ascending: true })
-        .limit(1)
-        .maybeSingle();
-      if (nextGpc) {
-        await supabase
-          .from("learner_gpc_status")
-          .update({ status: "learning" })
-          .eq("learner_id", data.learner_id)
-          .eq("gpc_id", nextGpc.gpc_id);
-        targetGpc = {
-          id: nextGpc.gpc_id,
-          grapheme: (nextGpc as any).gpcs.grapheme,
-          sound_label: (nextGpc as any).gpcs.sound_label,
-          example_word: (nextGpc as any).gpcs.example_word,
-        };
-      }
-    }
+    // Shared with finalizeAssessment via selectNextTarget so the report's
+    // "next_focus" grapheme cannot drift from what a real session actually picks.
+    const targetGpc = await selectNextTarget(supabase, data.learner_id);
 
     // Interference lookup for target
     const { data: targetInterference } = targetGpc
