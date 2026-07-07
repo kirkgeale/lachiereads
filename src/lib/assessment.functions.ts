@@ -1,6 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { selectNextTarget } from "./target-selection";
 
 interface Probe {
   id: string;
@@ -58,6 +59,31 @@ async function loadContext(supabase: any, learner_id: string) {
   };
 }
 
+async function loadPreviousAssessment(supabase: any, learner_id: string, exclude_id?: string) {
+  let q = supabase
+    .from("assessment_reports")
+    .select("id, created_at, estimated_level, summary, report_json")
+    .eq("learner_id", learner_id)
+    .eq("applied", true)
+    .order("created_at", { ascending: false })
+    .limit(1);
+  if (exclude_id) q = q.neq("id", exclude_id);
+  const { data } = await q.maybeSingle();
+  if (!data) return null;
+  const rj = (data as any).report_json ?? {};
+  const days_since = Math.max(
+    0,
+    Math.floor((Date.now() - new Date((data as any).created_at).getTime()) / 86400000),
+  );
+  return {
+    estimated_level: (data as any).estimated_level ?? null,
+    summary: (data as any).summary ?? null,
+    previously_working_on: Array.isArray(rj.working_on) ? rj.working_on : [],
+    previously_not_yet: Array.isArray(rj.not_yet) ? rj.not_yet : [],
+    days_since,
+  };
+}
+
 // Start an assessment: get probe list from Claude and save an empty record
 export const startAssessment = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -83,18 +109,29 @@ export const startAssessment = createServerFn({ method: "POST" })
     return { assessment_id: row.id, probes };
   });
 
-// Return the learner context used to build the AI report prompt.
-// The browser invokes the edge function directly (bypassing the ~30s
-// Cloudflare Worker outbound-fetch cap) and then posts the report back.
+// Return the learner context + prior-assessment comparison payload used to
+// build the AI report prompt. The browser invokes the edge function directly
+// (bypassing the ~30s Cloudflare Worker outbound-fetch cap) and posts the
+// report back to finalizeAssessment.
 export const getReportContext = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: { learner_id: string }) => z.object({ learner_id: z.string().uuid() }).parse(d))
+  .inputValidator((d: { learner_id: string; current_assessment_id?: string }) =>
+    z.object({ learner_id: z.string().uuid(), current_assessment_id: z.string().uuid().optional() }).parse(d),
+  )
   .handler(async ({ data, context }) => {
     const { learner_ctx } = await loadContext(context.supabase, data.learner_id);
-    return { learner: learner_ctx };
+    const previous_assessment = await loadPreviousAssessment(
+      context.supabase,
+      data.learner_id,
+      data.current_assessment_id,
+    );
+    return { learner: learner_ctx, previous_assessment };
   });
 
-// Persist an already-generated report and apply status updates.
+// Persist an already-generated report, apply status updates, then compute the
+// REAL next target the app will teach next (deterministically, same helper as
+// startSession) and ask Claude for a short narrative of that specific target.
+// The narrative — not Claude's guess — becomes report.next_focus.
 export const finalizeAssessment = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { assessment_id: string; learner_id: string; results: ProbeResult[]; report: any }) =>
@@ -120,9 +157,9 @@ export const finalizeAssessment = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase } = context;
-    const { gpcs, heartWords } = await loadContext(supabase, data.learner_id);
+    const { learner_ctx, gpcs, heartWords } = await loadContext(supabase, data.learner_id);
 
-    const report = data.report ?? {};
+    const report = { ...(data.report ?? {}) };
     const gpcUpdates: { grapheme: string; status: string }[] = report.gpc_updates ?? [];
     const hwUpdates: { word: string; status: string }[] = report.heart_word_updates ?? [];
 
@@ -168,6 +205,35 @@ export const finalizeAssessment = createServerFn({ method: "POST" })
     }
 
     await supabase.from("generated_content").delete().eq("learner_id", data.learner_id);
+
+    // Compute the ACTUAL next target using the same helper startSession uses.
+    // Ask Claude to narrate that specific grapheme as next_focus — not to pick one.
+    const nextTarget = await selectNextTarget(supabase, data.learner_id);
+    if (nextTarget) {
+      try {
+        const { data: nfRes, error: nfErr } = await supabase.functions.invoke("assess-reading", {
+          body: {
+            action: "next_focus",
+            learner: learner_ctx,
+            actual_next_target: {
+              grapheme: nextTarget.grapheme,
+              sound_label: nextTarget.sound_label,
+              example_word: nextTarget.example_word,
+            },
+          },
+        });
+        if (!nfErr && nfRes?.next_focus) {
+          report.next_focus = nfRes.next_focus;
+        }
+      } catch (err) {
+        console.error("[finalizeAssessment] next_focus generation failed", err);
+      }
+      report.actual_next_target = {
+        grapheme: nextTarget.grapheme,
+        sound_label: nextTarget.sound_label,
+        example_word: nextTarget.example_word,
+      };
+    }
 
     await supabase
       .from("assessment_reports")
