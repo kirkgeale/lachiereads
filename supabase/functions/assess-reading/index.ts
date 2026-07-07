@@ -104,6 +104,18 @@ The app has ALREADY chosen the exact letter or letter-team to focus on next — 
 
 Return STRICT JSON only, no code fences: { "next_focus": "..." }`;
 
+type ReportJson = {
+  estimated_level: string;
+  plain_summary: string;
+  what_they_can_do: string[];
+  working_on: string[];
+  not_yet: string[];
+  parent_actions_this_week: string[];
+  next_focus: string;
+  gpc_updates: { grapheme: string; status: string }[];
+  heart_word_updates: { word: string; status: string }[];
+};
+
 async function callClaude(system: string, user: string, opts?: { thinking?: boolean; max_tokens?: number }): Promise<string> {
   const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
   if (!apiKey) throw new Error("missing ANTHROPIC_API_KEY");
@@ -139,14 +151,117 @@ async function callClaude(system: string, user: string, opts?: { thinking?: bool
 }
 
 function parseJson(text: string): any {
-  const clean = text.replace(/```json|```/g, "").trim();
+  let clean = text
+    .replace(/^\s*```(?:json)?\s*/i, "")
+    .replace(/```\s*$/g, "")
+    .replace(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g, "")
+    .trim();
   try {
     return JSON.parse(clean);
-  } catch {
-    const m = clean.match(/\{[\s\S]*\}/);
-    if (m) return JSON.parse(m[0]);
-    throw new Error("failed to parse JSON from model output");
+  } catch (firstErr) {
+    const start = clean.indexOf("{");
+    const end = clean.lastIndexOf("}");
+    if (start === -1 || end === -1 || end <= start) {
+      throw new Error(`failed to parse JSON from model output: ${String((firstErr as Error).message ?? firstErr)}`);
+    }
+    clean = clean
+      .slice(start, end + 1)
+      .replace(/,\s*([}\]])/g, "$1")
+      .replace(/[“”]/g, '"')
+      .replace(/[‘’]/g, "'");
+    try {
+      return JSON.parse(clean);
+    } catch (secondErr) {
+      throw new Error(`failed to parse JSON from model output: ${String((secondErr as Error).message ?? secondErr)}`);
+    }
   }
+}
+
+function asString(value: unknown, fallback: string): string {
+  return typeof value === "string" && value.trim() ? value.trim() : fallback;
+}
+
+function asStringArray(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => (typeof item === "string" ? item.trim() : "")).filter(Boolean);
+}
+
+function asStatus(value: unknown): string {
+  return ["not_started", "learning", "practising", "secure"].includes(String(value)) ? String(value) : "learning";
+}
+
+function normalizeUpdates(value: unknown, key: "grapheme" | "word"): { [key: string]: string; status: string }[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => {
+      const target = typeof item?.[key] === "string" ? item[key].trim() : "";
+      if (!target) return null;
+      return { [key]: target, status: asStatus(item?.status) } as { [key: string]: string; status: string };
+    })
+    .filter(Boolean) as { [key: string]: string; status: string }[];
+}
+
+function fallbackReport(learner: LearnerCtx, results: ProbeResult[], prev?: { days_since: number } | null): ReportJson {
+  const correctish = new Set(["correct", "self_corrected"]);
+  const helped = new Set(["prompted", "hesitated"]);
+  const independent = results.filter((r) => correctish.has(r.outcome));
+  const prompted = results.filter((r) => helped.has(r.outcome));
+  const missed = results.filter((r) => r.outcome === "missed" || r.outcome === "skipped");
+  const examples = (items: ProbeResult[], limit = 3) =>
+    items
+      .map((r) => r.target_grapheme || r.target_heart_word || r.prompt)
+      .filter(Boolean)
+      .filter((v, i, a) => a.indexOf(v) === i)
+      .slice(0, limit);
+  const strengths = examples(independent);
+  const gaps = examples([...prompted, ...missed]);
+  const firstLine = `${learner.name} completed this reading check-in and read ${independent.length} of ${results.length} items independently or with a self-correction.`;
+  const compareLine = prev
+    ? `Compared with the last check-in ${prev.days_since} day(s) ago, this report should be read as a fresh snapshot of today's reading.`
+    : "This is our first proper check-in, so there's nothing yet to compare it to.";
+  return {
+    estimated_level: "Assessment completed",
+    plain_summary: `${firstLine} This is what we saw today — a good check-in, not the full picture. ${compareLine}`,
+    what_they_can_do: strengths.length
+      ? strengths.map((s) => `Read '${s}' independently or fixed it without help.`)
+      : ["Stayed with the reading check-in and gave the items a try."],
+    working_on: gaps.length
+      ? gaps.map((s) => `Keep practising '${s}' so it becomes easier and more automatic.`)
+      : ["Keep building smooth, confident reading with short daily practice."],
+    not_yet: missed.length
+      ? examples(missed, 2).map((s) => `We have not made '${s}' easy yet; it can come later in practice.`)
+      : ["Harder letter patterns can wait until the current reading feels smooth."],
+    parent_actions_this_week: [
+      "Read together for 5 minutes each day using very short words and sentences.",
+      "Praise quick self-corrections and calm trying, not just first-time accuracy.",
+      "Stop while it still feels easy so reading practice stays positive.",
+    ],
+    next_focus: "Keep reading together in short, calm bursts. The next practice session will choose the exact next letter or letter-team to work on.",
+    gpc_updates: results
+      .filter((r) => r.target_grapheme && r.target_grapheme.length <= 4 && !r.target_grapheme.includes(" "))
+      .map((r) => ({ grapheme: r.target_grapheme!, status: correctish.has(r.outcome) ? "secure" : helped.has(r.outcome) ? "practising" : "learning" })),
+    heart_word_updates: results
+      .filter((r) => r.target_heart_word)
+      .map((r) => ({ word: r.target_heart_word!, status: correctish.has(r.outcome) ? "secure" : helped.has(r.outcome) ? "practising" : "learning" })),
+  };
+}
+
+function normalizeReport(raw: any, learner: LearnerCtx, results: ProbeResult[], prev?: { days_since: number } | null): ReportJson {
+  const fallback = fallbackReport(learner, results, prev);
+  const canDo = asStringArray(raw?.what_they_can_do ?? raw?.strengths);
+  const workingOn = asStringArray(raw?.working_on ?? raw?.focus_areas);
+  const actions = asStringArray(raw?.parent_actions_this_week ?? raw?.next_steps);
+  return {
+    estimated_level: asString(raw?.estimated_level, fallback.estimated_level),
+    plain_summary: asString(raw?.plain_summary ?? raw?.summary, fallback.plain_summary),
+    what_they_can_do: canDo.length ? canDo : fallback.what_they_can_do,
+    working_on: workingOn.length ? workingOn : fallback.working_on,
+    not_yet: asStringArray(raw?.not_yet).length ? asStringArray(raw?.not_yet) : fallback.not_yet,
+    parent_actions_this_week: actions.length ? actions : fallback.parent_actions_this_week,
+    next_focus: asString(raw?.next_focus, fallback.next_focus),
+    gpc_updates: normalizeUpdates(raw?.gpc_updates, "grapheme") as { grapheme: string; status: string }[],
+    heart_word_updates: normalizeUpdates(raw?.heart_word_updates, "word") as { word: string; status: string }[],
+  };
 }
 
 Deno.serve(async (req: Request) => {
