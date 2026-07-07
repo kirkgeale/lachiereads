@@ -176,10 +176,30 @@ Deno.serve(async (req: Request) => {
     if (body.action === "report") {
       const learner = body.learner as LearnerCtx;
       const results = body.results as ProbeResult[];
+      const prev = body.previous_assessment as
+        | {
+            estimated_level: string | null;
+            summary: string | null;
+            previously_working_on: string[];
+            previously_not_yet: string[];
+            days_since: number;
+          }
+        | undefined
+        | null;
+
+      const prevBlock = prev
+        ? `\nPREVIOUS ASSESSMENT (from ${prev.days_since} day(s) ago):\n` +
+          `  - estimated_level: ${prev.estimated_level ?? "n/a"}\n` +
+          `  - summary: ${prev.summary ?? "n/a"}\n` +
+          `  - was working on: ${(prev.previously_working_on ?? []).join(" | ") || "n/a"}\n` +
+          `  - was not yet: ${(prev.previously_not_yet ?? []).join(" | ") || "n/a"}\n`
+        : `\nPREVIOUS ASSESSMENT: none — this is the child's FIRST assessment. Do not imply a comparison; say so plainly.\n`;
+
       const userMsg =
         `Learner: ${learner.name}, age ~${learner.age_years ?? "?"}. Native English speaker, learning to read (formal instruction in Swedish).\n` +
         `Interference to note when relevant:\n` +
         learner.interference_pairs.map((p) => `  ${p.grapheme}: SV=${p.swedish_value} / EN=${p.english_value}`).join("\n") + "\n" +
+        prevBlock +
         `\nAssessment probe results (in order administered):\n` +
         results.map((r, i) =>
           `  ${i + 1}. [${r.kind} d${r.difficulty}] "${r.prompt}"` +
@@ -187,8 +207,32 @@ Deno.serve(async (req: Request) => {
             (r.target_heart_word ? ` (heart word: ${r.target_heart_word})` : "") +
             ` -> ${r.outcome}`,
         ).join("\n") +
-        `\n\nWrite the report and propose updates now.`;
+        `\n\nWrite the report and propose updates now. Remember: a miss on a probe well above the child's working level is a ceiling-probe miss and belongs in not_yet neutrally, not in working_on. For next_focus: this call does NOT include actual_next_target — write next_focus as a general "keep reading together" note. The app will overwrite it with a targeted version after the real next-target is computed.`;
       const text = await callClaude(REPORT_SYSTEM, userMsg);
+      const parsed = parseJson(text);
+      return new Response(JSON.stringify(parsed), {
+        status: 200,
+        headers: { ...corsHeaders, "content-type": "application/json" },
+      });
+    }
+
+    if (body.action === "next_focus") {
+      const learner = body.learner as LearnerCtx;
+      const target = body.actual_next_target as { grapheme: string; sound_label: string; example_word: string };
+      if (!target?.grapheme) {
+        return new Response(JSON.stringify({ error: "actual_next_target required" }), {
+          status: 400,
+          headers: { ...corsHeaders, "content-type": "application/json" },
+        });
+      }
+      const userMsg =
+        `Learner: ${learner.name}, age ~${learner.age_years ?? "?"}.\n` +
+        `The app has decided the next focus for the very next session. Write next_focus for THIS exact target:\n` +
+        `  - letter/letter-team: ${target.grapheme}\n` +
+        `  - sound: ${target.sound_label}\n` +
+        `  - example word: ${target.example_word}\n` +
+        `\n2-3 warm sentences. Name this exact sound. Do not substitute another sound.`;
+      const text = await callClaude(NEXT_FOCUS_SYSTEM, userMsg, { thinking: false, max_tokens: 400 });
       const parsed = parseJson(text);
       return new Response(JSON.stringify(parsed), {
         status: 200,
