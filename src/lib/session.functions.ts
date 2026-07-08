@@ -647,7 +647,7 @@ export const saveSessionEvents = createServerFn({ method: "POST" })
     return { ok: true, newly_secure_gpc_ids: newlySecureGpcIds, stars_awarded: stars };
   });
 
-// -------- FLASHCARDS: balanced 20-card mix (sounds + heart words + decodable words) --------
+// -------- FLASHCARDS: balanced 12-card mix (sounds + heart words + decodable words) --------
 export const buildFlashcardDeck = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { learner_id: string; size?: number }) =>
@@ -655,15 +655,15 @@ export const buildFlashcardDeck = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }): Promise<SessionCard[]> => {
     const { supabase } = context;
-    const size = data.size ?? 20;
+    const size = data.size ?? 12;
     const t = today();
     const sessionSeq = await computeSessionSeq(supabase, data.learner_id);
     const freshnessSalt = `${t}#fc#${sessionSeq}`;
 
-    // Target counts within the deck
-    const targetGpcCount = Math.round(size * 0.4);   // ~8 of 20
-    const targetHwCount = Math.round(size * 0.2);    // ~4 of 20
-    const targetWordCount = size - targetGpcCount - targetHwCount; // ~8 of 20
+    // Target counts within the deck (~5 GPCs, ~3 heart words, ~4 decodable words)
+    const targetGpcCount = Math.max(1, Math.round(size * 0.42));
+    const targetHwCount = Math.max(1, Math.round(size * 0.25));
+    const targetWordCount = size - targetGpcCount - targetHwCount;
 
     // --- GPCs: due first, top up with active-not-due ---
     const { data: dueGpcs } = await supabase
