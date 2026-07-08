@@ -293,6 +293,20 @@ function AssessmentPage() {
               <OutcomeBtn onClick={() => record("missed")} icon={<X className="w-4 h-4" />} label="Missed" tone="muted" />
               <OutcomeBtn onClick={() => record("skipped")} icon={<SkipForward className="w-4 h-4" />} label="Skip" tone="muted" />
             </div>
+            {hardFailStreak >= 3 && (
+              <div className="mt-4 rounded-xl border border-primary/40 bg-primary/5 p-3 flex items-center justify-between gap-3">
+                <div className="text-sm text-foreground/90">
+                  These last few felt too hard. You can stop now — we have enough to place them.
+                </div>
+                <button
+                  onClick={finishNow}
+                  disabled={finalMut.isPending}
+                  className="rounded-full bg-primary text-primary-foreground px-4 py-2 text-sm flex items-center gap-2 disabled:opacity-60"
+                >
+                  <Sparkles className="w-4 h-4" /> Finish here
+                </button>
+              </div>
+            )}
             <p className="mt-3 text-[11px] text-muted-foreground leading-snug">
               <b>Correct</b>: read cleanly first try. <b>Self-corrected</b>: fixed it themselves. <b>Prompted</b>: needed a hint. <b>Missed</b>: couldn't read it.
             </p>
