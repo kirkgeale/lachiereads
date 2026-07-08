@@ -313,17 +313,34 @@ function normalizeReport(raw: any, learner: LearnerCtx, results: ProbeResult[], 
   };
 }
 
+async function requireUser(req: Request): Promise<Response | null> {
+  const auth = req.headers.get("authorization") ?? "";
+  const token = auth.toLowerCase().startsWith("bearer ") ? auth.slice(7) : "";
+  if (!token) return new Response(JSON.stringify({ error: "unauthorized" }), {
+    status: 401, headers: { ...corsHeaders, "content-type": "application/json" },
+  });
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const publishableKey = Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ?? Deno.env.get("SUPABASE_ANON_KEY");
+  if (!supabaseUrl || !publishableKey) {
+    return new Response(JSON.stringify({ error: "server auth not configured" }), {
+      status: 500, headers: { ...corsHeaders, "content-type": "application/json" },
+    });
+  }
+  const r = await fetch(`${supabaseUrl}/auth/v1/user`, {
+    headers: { apikey: publishableKey, Authorization: `Bearer ${token}` },
+  });
+  if (!r.ok) return new Response(JSON.stringify({ error: "unauthorized" }), {
+    status: 401, headers: { ...corsHeaders, "content-type": "application/json" },
+  });
+  return null;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const authErr = await requireUser(req);
+  if (authErr) return authErr;
   try {
     const body = await req.json();
-    if (body.action === "plan") {
-      const learner = body.learner as LearnerCtx;
-      return new Response(JSON.stringify({ probes: buildDeterministicProbes(learner) }), {
-        status: 200,
-        headers: { ...corsHeaders, "content-type": "application/json" },
-      });
-    }
 
     if (body.action === "report") {
       const learner = body.learner as LearnerCtx;
@@ -360,7 +377,7 @@ Deno.serve(async (req: Request) => {
             ` -> ${r.outcome}`,
         ).join("\n") +
         `\n\nWrite the report and propose updates now. Remember: a miss on a probe well above the child's working level is a ceiling-probe miss and belongs in not_yet neutrally, not in working_on. For next_focus: this call does NOT include actual_next_target — write next_focus as a general "keep reading together" note. The app will overwrite it with a targeted version after the real next-target is computed.`;
-      const text = await callClaude(REPORT_SYSTEM, userMsg);
+      const text = await callClaude(REPORT_SYSTEM, userMsg, { model: CLAUDE_MODEL_REPORT });
       let parsed: ReportJson;
       try {
         parsed = normalizeReport(parseJson(text), learner, results, prev);
@@ -390,7 +407,11 @@ Deno.serve(async (req: Request) => {
         `  - sound: ${target.sound_label}\n` +
         `  - example word: ${target.example_word}\n` +
         `\n2-3 warm sentences. Name this exact sound. Do not substitute another sound.`;
-      const text = await callClaude(NEXT_FOCUS_SYSTEM, userMsg, { thinking: false, max_tokens: 400 });
+      const text = await callClaude(NEXT_FOCUS_SYSTEM, userMsg, {
+        thinking: false,
+        max_tokens: 400,
+        model: CLAUDE_MODEL_FAST,
+      });
       const parsed = parseJson(text);
       return new Response(JSON.stringify(parsed), {
         status: 200,
