@@ -152,13 +152,12 @@ export function buildAssessmentProbes(learner: AssessmentLearnerContext): Assess
     if (key) usedTargets.add(key.toLowerCase());
     probes.push({ ...probe, id: `p${probes.length + 1}` });
   };
-  const byPhase = (min: number, max: number) => catalog.filter((g) => g.phase >= min && g.phase <= max);
-  const singleLetters = byPhase(1, 2).filter((g) => /^[a-z]$/i.test(g.grapheme));
-  const early = byPhase(1, 2);
-  const phaseThree = byPhase(3, 3);
-  const later = byPhase(4, 9);
 
-  for (const g of singleLetters.slice(0, 6)) {
+  // Pass 1: one letter-sound probe for EVERY single-letter grapheme in phases 1–2.
+  // Placement requires seeing the whole alphabet, not a sample of 6.
+  for (const g of catalog) {
+    if (g.phase > 2) continue;
+    if (!/^[a-z]$/i.test(g.grapheme)) continue;
     add({
       kind: "grapheme_sound",
       prompt: g.grapheme,
@@ -168,72 +167,77 @@ export function buildAssessmentProbes(learner: AssessmentLearnerContext): Assess
     });
   }
 
-  for (const g of early) {
-    if (probes.filter((p) => p.kind === "cvc_word").length >= 5) break;
+  // Pass 2: one CVC/example-word probe for every phase 1–2 grapheme we didn't
+  // already cover (e.g. multi-letter phase-2 items).
+  for (const g of catalog) {
+    if (g.phase > 2) continue;
     add({
       kind: "cvc_word",
-      prompt: g.example_word,
+      prompt: g.example_word || g.grapheme,
       target_grapheme: g.grapheme,
       difficulty: 2,
       notes: `listen for ${g.sound_label} in '${g.example_word}'`,
     });
   }
 
-  for (const g of phaseThree) {
-    if (probes.filter((p) => p.difficulty === 3).length >= 7) break;
+  // Pass 3: one example-word probe for EVERY phase 3+ grapheme (digraphs,
+  // trigraphs, split vowels, alternatives) — placement extends across the
+  // full scope-and-sequence, not just the first few digraphs.
+  for (const g of catalog) {
+    if (g.phase < 3) continue;
+    const kind = g.grapheme.includes("_")
+      ? "vcv_word"
+      : g.grapheme.length > 1
+        ? "digraph_word"
+        : "grapheme_sound";
     add({
-      kind: g.grapheme.length > 1 ? "digraph_word" : "grapheme_sound",
-      prompt: g.example_word,
-      target_grapheme: g.grapheme,
-      difficulty: 3,
-      notes: `listen for ${g.sound_label} in '${g.example_word}'`,
-    });
-  }
-
-  for (const g of later) {
-    if (probes.filter((p) => p.difficulty >= 4 && p.kind !== "heart_word").length >= 7) break;
-    add({
-      kind: g.grapheme.includes("_") ? "vcv_word" : "digraph_word",
-      prompt: g.example_word,
-      target_grapheme: g.grapheme,
-      difficulty: g.phase >= 5 ? 5 : 4,
-      notes: `listen for ${g.sound_label} in '${g.example_word}'`,
-    });
-  }
-
-  for (const word of (learner.all_heart_words ?? []).slice(0, 4)) {
-    add({ kind: "heart_word", prompt: word, target_heart_word: word, difficulty: 2, notes: "word recognition" }, `heart:${word}`);
-  }
-
-  const pseudoSeeds = catalog.filter((g) => !usedTargets.has(g.grapheme.toLowerCase())).slice(0, 3);
-  for (const g of pseudoSeeds) {
-    const prompt = g.grapheme.length === 1 ? `${g.grapheme}ap` : `${g.grapheme}ip`;
-    add({
-      kind: "pseudoword",
-      prompt,
+      kind,
+      prompt: g.example_word || g.grapheme,
       target_grapheme: g.grapheme,
       difficulty: Math.min(5, Math.max(3, g.phase)),
-      notes: `made-up word; listen for ${g.sound_label}`,
+      notes: `listen for ${g.sound_label} in '${g.example_word}'`,
     });
   }
 
+  // Heart words: probe a broader sample so sight-word placement is real too.
+  for (const word of (learner.all_heart_words ?? []).slice(0, 10)) {
+    add(
+      { kind: "heart_word", prompt: word, target_heart_word: word, difficulty: 2, notes: "word recognition" },
+      `heart:${word}`,
+    );
+  }
+
+  // Two graded sentences to check fluency, not just isolated decoding.
+  const early = catalog.filter((g) => g.phase <= 2);
+  const phaseThree = catalog.filter((g) => g.phase === 3);
+  const later = catalog.filter((g) => g.phase >= 4);
   const sentenceWord = early.find((g) => g.example_word)?.example_word ?? catalog[0]?.example_word ?? "it";
-  const secondWord = phaseThree.find((g) => g.example_word)?.example_word ?? later.find((g) => g.example_word)?.example_word ?? sentenceWord;
+  const secondWord =
+    phaseThree.find((g) => g.example_word)?.example_word ??
+    later.find((g) => g.example_word)?.example_word ??
+    sentenceWord;
   add({ kind: "sentence", prompt: `I can see ${sentenceWord}.`, difficulty: 3, notes: "listen for smooth word-by-word reading" });
   add({ kind: "sentence", prompt: `The ${secondWord} is here.`, difficulty: 4, notes: "listen for independence and fluency" });
 
-  for (const g of catalog) {
-    if (probes.length >= 24) break;
-    add({
-      kind: g.phase <= 2 ? "cvc_word" : "digraph_word",
-      prompt: g.example_word || g.grapheme,
-      target_grapheme: g.grapheme,
-      difficulty: Math.min(5, Math.max(1, g.phase)),
-      notes: `listen for ${g.sound_label}`,
-    });
+  // Pseudowords distinguish decoding skill from memorised words.
+  const pseudoSeeds = catalog.filter((g) => g.phase >= 2 && g.phase <= 4).slice(0, 3);
+  for (const g of pseudoSeeds) {
+    const prompt = g.grapheme.length === 1 ? `${g.grapheme}ap` : `${g.grapheme}ip`;
+    add(
+      {
+        kind: "pseudoword",
+        prompt,
+        target_grapheme: g.grapheme,
+        difficulty: Math.min(5, Math.max(3, g.phase)),
+        notes: `made-up word; listen for ${g.sound_label}`,
+      },
+      `pseudo:${prompt}`,
+    );
   }
 
-  return probes.slice(0, 32);
+  // Cap generously — a full sweep can exceed 60 items; parents can stop early
+  // with "skip". Coverage > blindness for placement.
+  return probes.slice(0, 80);
 }
 
 function cleanString(value: unknown) {

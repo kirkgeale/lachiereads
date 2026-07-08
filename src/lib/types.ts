@@ -57,7 +57,7 @@ export interface SessionCard {
   interference?: InterferenceItem | null;
   stage: SessionStage;
   stage_intro?: StageIntro; // parent-facing guidance shown on the first card of a stage
-  meta?: Record<string, string | number | boolean | null>;
+  meta?: Record<string, string | number | boolean | null | string[]>;
 }
 
 export interface SessionPlan {
