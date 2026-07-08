@@ -187,7 +187,7 @@ export async function generateContentInternal(a: GenArgs): Promise<any> {
     }
   }
 
-  await a.supabase
+  const { error: upsertErr } = await a.supabase
     .from("generated_content")
     .upsert(
       {
@@ -199,6 +199,7 @@ export async function generateContentInternal(a: GenArgs): Promise<any> {
       },
       { onConflict: "cache_key" },
     );
+  if (upsertErr) console.error("[generate-content] cache upsert failed", upsertErr);
 
   return content;
 }
