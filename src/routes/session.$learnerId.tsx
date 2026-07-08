@@ -259,3 +259,97 @@ function FullScreenMessage({ title, detail, onBack }: { title: string; detail?: 
     </div>
   );
 }
+
+// A "lesson" — teaching a new sound. Different from a flashcard: it walks the
+// parent through I-do / We-do / You-do with the target letter, shows multiple
+// example words, and explicitly names the sound and mouth cue before asking
+// for a recall attempt.
+function LessonCard({ card, onOutcome }: { card: SessionCard; onOutcome: (o: Outcome) => void }) {
+  const grapheme = card.display;
+  const upper = grapheme.toUpperCase();
+  const lower = grapheme.toLowerCase();
+  const showPair = upper !== lower;
+  const examples = Array.isArray(card.meta?.examples) ? (card.meta!.examples as string[]) : [];
+  const concept = typeof card.meta?.concept === "string" ? card.meta!.concept : "";
+  const parentIntro = typeof card.meta?.parent_intro === "string" ? card.meta!.parent_intro : "";
+  const highlight = (word: string) => {
+    const g = lower;
+    const idx = word.toLowerCase().indexOf(g);
+    if (idx < 0) return <>{word.toUpperCase()}</>;
+    return (
+      <>
+        {word.slice(0, idx).toUpperCase()}
+        <span className="text-primary underline decoration-primary/40 decoration-4 underline-offset-4">
+          {word.slice(idx, idx + g.length).toUpperCase()}
+        </span>
+        {word.slice(idx + g.length).toUpperCase()}
+      </>
+    );
+  };
+  return (
+    <div className="w-full max-w-2xl mx-auto flex flex-col items-center gap-6">
+      <div className="w-full text-center">
+        <div className="text-xs uppercase tracking-widest text-accent">New sound · lesson</div>
+        <div className="mt-1 text-sm text-muted-foreground italic">
+          Teach this together — model first, then read with them, then let them try.
+        </div>
+      </div>
+
+      {/* The letter, big, with the sound named explicitly */}
+      <div className="w-full flex flex-col items-center gap-2 rounded-[2rem] bg-card border border-border/60 shadow-sm px-6 py-10">
+        <div className="font-display font-semibold text-primary leading-none text-8xl md:text-9xl">{upper}</div>
+        {showPair && (
+          <div className="text-3xl font-display text-muted-foreground/70 tracking-wide">{lower}</div>
+        )}
+        {card.sound_label && (
+          <div className="mt-3 text-xl text-foreground/90">says <b className="text-primary">{card.sound_label}</b></div>
+        )}
+        {concept && <div className="mt-2 text-sm text-muted-foreground text-center max-w-md">{concept}</div>}
+      </div>
+
+      {/* I do → We do → You do teaching script */}
+      <div className="w-full rounded-2xl bg-accent/10 border border-accent/30 px-5 py-4 space-y-3">
+        <div className="text-xs uppercase tracking-widest text-accent font-medium">For the parent — read aloud</div>
+        {parentIntro && <p className="text-sm text-foreground/90">{parentIntro}</p>}
+        <ol className="space-y-2 text-sm">
+          <li><b>1. I say.</b> Point to the letter. "This says <i>{card.sound_label}</i>." Model it clearly.</li>
+          <li><b>2. We say.</b> "Let's say it together." Say the sound with them, twice.</li>
+          <li><b>3. You say.</b> "Now your turn — what does this say?" Wait. Only prompt if truly stuck.</li>
+        </ol>
+      </div>
+
+      {/* Example words with the target grapheme visibly highlighted */}
+      {examples.length > 0 && (
+        <div className="w-full rounded-2xl bg-card border border-border/60 px-5 py-4">
+          <div className="text-xs uppercase tracking-widest text-muted-foreground mb-3">
+            Read these together — the <b className="text-primary">{upper}</b> is the new bit
+          </div>
+          <div className="flex flex-wrap justify-center gap-3">
+            {examples.map((w) => (
+              <div key={w} className="font-display text-3xl md:text-4xl px-4 py-2 rounded-xl bg-muted/60">
+                {highlight(w)}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {card.interference && (
+        <div className="w-full rounded-2xl bg-[hsl(200_40%_92%)] border border-[hsl(200_35%_78%)] px-5 py-4 text-[hsl(200_35%_25%)]">
+          <div className="text-xs uppercase tracking-wider mb-1 opacity-70">Swedish heads-up</div>
+          <div className="text-base">
+            In Swedish this often says <b>{card.interference.swedish_value}</b> — in English it says{" "}
+            <b>{card.interference.english_value}</b>.
+          </div>
+        </div>
+      )}
+
+      <div className="w-full">
+        <div className="text-xs uppercase tracking-widest text-muted-foreground text-center mb-2">
+          How did their try go?
+        </div>
+        <OutcomeButtons onOutcome={onOutcome} />
+      </div>
+    </div>
+  );
+}
