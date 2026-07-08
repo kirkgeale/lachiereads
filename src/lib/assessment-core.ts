@@ -152,10 +152,6 @@ function uniqueGraphemes(items: AssessmentLearnerContext["all_graphemes"]) {
     });
 }
 
-export function buildAssessmentProbes(learner: AssessmentLearnerContext): AssessmentProbe[] {
-  const catalog = uniqueGraphemes(learner.all_graphemes ?? []);
-  const usedTargets = new Set<string>();
-  const probes: AssessmentProbe[] = [];
 // Curated pseudoword bank. Every entry: (a) is NOT a real English word,
 // (b) is orthographically legal for its target grapheme (ck word-final,
 // qu word-initial+vowel, ng/nk word-final), (c) is decodable from common
