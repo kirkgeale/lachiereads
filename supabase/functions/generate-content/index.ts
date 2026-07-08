@@ -1,4 +1,4 @@
-// Reading Garden - AI content generation via Anthropic (Claude Sonnet 4.5)
+// Reading Garden - AI content generation via Anthropic (Claude Sonnet)
 // Produces short, decodable English reading practice tailored to the learner's
 // current level, target grapheme, recent misses, and Swedish-English interference.
 
