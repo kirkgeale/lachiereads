@@ -1,4 +1,4 @@
-// Reading Garden - AI content generation via Anthropic (Claude Sonnet 4.5)
+// Reading Garden - AI content generation via Anthropic (Claude Sonnet)
 // Produces short, decodable English reading practice tailored to the learner's
 // current level, target grapheme, recent misses, and Swedish-English interference.
 
@@ -132,8 +132,32 @@ Now produce every list, keeping to the non-negotiable decodability rules.${commo
   }
 }
 
+async function requireUser(req: Request): Promise<Response | null> {
+  const auth = req.headers.get("authorization") ?? "";
+  const token = auth.toLowerCase().startsWith("bearer ") ? auth.slice(7) : "";
+  if (!token) return new Response(JSON.stringify({ error: "unauthorized" }), {
+    status: 401, headers: { ...corsHeaders, "content-type": "application/json" },
+  });
+  const supabaseUrl = Deno.env.get("SUPABASE_URL");
+  const publishableKey = Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ?? Deno.env.get("SUPABASE_ANON_KEY");
+  if (!supabaseUrl || !publishableKey) {
+    return new Response(JSON.stringify({ error: "server auth not configured" }), {
+      status: 500, headers: { ...corsHeaders, "content-type": "application/json" },
+    });
+  }
+  const r = await fetch(`${supabaseUrl}/auth/v1/user`, {
+    headers: { apikey: publishableKey, Authorization: `Bearer ${token}` },
+  });
+  if (!r.ok) return new Response(JSON.stringify({ error: "unauthorized" }), {
+    status: 401, headers: { ...corsHeaders, "content-type": "application/json" },
+  });
+  return null;
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+  const authErr = await requireUser(req);
+  if (authErr) return authErr;
 
   try {
     const body = (await req.json()) as Req;
@@ -143,6 +167,7 @@ Deno.serve(async (req: Request) => {
         headers: { ...corsHeaders, "content-type": "application/json" },
       });
     }
+
 
     const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
     if (!apiKey) {

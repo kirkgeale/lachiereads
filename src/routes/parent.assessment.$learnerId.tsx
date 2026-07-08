@@ -14,9 +14,18 @@ export const Route = createFileRoute("/parent/assessment/$learnerId")({
   component: AssessmentPage,
 });
 
+type Strand =
+  | "letter_sounds"
+  | "simple_words"
+  | "letter_team_words"
+  | "heart_words"
+  | "pseudowords"
+  | "sentences";
+
 type Probe = {
   id: string;
   kind: string;
+  strand: Strand;
   prompt: string;
   target_grapheme?: string;
   target_heart_word?: string;
@@ -24,6 +33,15 @@ type Probe = {
   notes?: string;
 };
 type Outcome = "correct" | "self_corrected" | "prompted" | "missed" | "skipped";
+
+const STRAND_LABEL: Record<Strand, string> = {
+  letter_sounds: "letter sounds",
+  simple_words: "simple words",
+  letter_team_words: "letter-team words",
+  heart_words: "heart words",
+  pseudowords: "made-up words",
+  sentences: "sentences",
+};
 
 function AssessmentPage() {
   const { learnerId } = Route.useParams();
@@ -91,9 +109,57 @@ function AssessmentPage() {
   const record = (outcome: Outcome) => {
     if (!session) return;
     const probe = session.probes[idx];
-    setResults((prev) => [...prev, { ...probe, outcome }]);
-    setIdx((i) => i + 1);
+    const nextResults = [...results, { ...probe, outcome }];
+
+    // Discontinue logic: within a strand, 3 consecutive missed+skipped ->
+    // auto-skip the rest of that strand.
+    const isFail = (o: Outcome) => o === "missed" || o === "skipped";
+    let cursor = idx + 1;
+    const strandFailStreak = (() => {
+      let n = 0;
+      for (let i = nextResults.length - 1; i >= 0; i--) {
+        const r = nextResults[i];
+        if (r.strand !== probe.strand) break;
+        if (isFail(r.outcome)) n++;
+        else break;
+      }
+      return n;
+    })();
+
+    if (strandFailStreak >= 3) {
+      const strandName = STRAND_LABEL[probe.strand] ?? probe.strand;
+      let skipped = 0;
+      while (cursor < session.probes.length && session.probes[cursor].strand === probe.strand) {
+        nextResults.push({ ...session.probes[cursor], outcome: "skipped" });
+        cursor++;
+        skipped++;
+      }
+      if (skipped > 0) toast(`Skipping ahead — we've found the edge of ${strandName}.`);
+    }
+
+    setResults(nextResults);
+    setIdx(cursor);
   };
+
+  // Count consecutive missed at difficulty >= 4 across the tail, for the
+  // "Finish here" prompt.
+  const hardFailStreak = (() => {
+    let n = 0;
+    for (let i = results.length - 1; i >= 0; i--) {
+      const r = results[i];
+      if (r.difficulty < 4) continue;
+      if (r.outcome === "missed" || r.outcome === "skipped") n++;
+      else break;
+    }
+    return n;
+  })();
+
+  const finishNow = () => {
+    if (!session) return;
+    const remaining = session.probes.slice(idx).map((p) => ({ ...p, outcome: "skipped" as Outcome }));
+    finalMut.mutate([...results, ...remaining]);
+  };
+
 
   const finish = () => finalMut.mutate(results);
 
@@ -227,6 +293,20 @@ function AssessmentPage() {
               <OutcomeBtn onClick={() => record("missed")} icon={<X className="w-4 h-4" />} label="Missed" tone="muted" />
               <OutcomeBtn onClick={() => record("skipped")} icon={<SkipForward className="w-4 h-4" />} label="Skip" tone="muted" />
             </div>
+            {hardFailStreak >= 3 && (
+              <div className="mt-4 rounded-xl border border-primary/40 bg-primary/5 p-3 flex items-center justify-between gap-3">
+                <div className="text-sm text-foreground/90">
+                  These last few felt too hard. You can stop now — we have enough to place them.
+                </div>
+                <button
+                  onClick={finishNow}
+                  disabled={finalMut.isPending}
+                  className="rounded-full bg-primary text-primary-foreground px-4 py-2 text-sm flex items-center gap-2 disabled:opacity-60"
+                >
+                  <Sparkles className="w-4 h-4" /> Finish here
+                </button>
+              </div>
+            )}
             <p className="mt-3 text-[11px] text-muted-foreground leading-snug">
               <b>Correct</b>: read cleanly first try. <b>Self-corrected</b>: fixed it themselves. <b>Prompted</b>: needed a hint. <b>Missed</b>: couldn't read it.
             </p>

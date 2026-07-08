@@ -43,7 +43,8 @@ function makeCacheKey(a: GenArgs): string {
   const v = a.variant ?? "";
   const i = (a.interests ?? "").trim().toLowerCase();
   const p = (a.parentObservations ?? []).slice(0, 3).join("|");
-  return `${a.type}::${gs}::${hs}::t=${t}::m=${m}::s=${s}::c=${c}::f=${f}::v=${v}::i=${i}::p=${p}`;
+  // Prefix learner_id so two learners never share a cache row.
+  return `L=${a.learner_id}::${a.type}::${gs}::${hs}::t=${t}::m=${m}::s=${s}::c=${c}::f=${f}::v=${v}::i=${i}::p=${p}`;
 }
 
 function fallbackWordList(allowedGraphemes: string[], known: string[]): string[] {
@@ -186,7 +187,7 @@ export async function generateContentInternal(a: GenArgs): Promise<any> {
     }
   }
 
-  await a.supabase
+  const { error: upsertErr } = await a.supabase
     .from("generated_content")
     .upsert(
       {
@@ -198,6 +199,7 @@ export async function generateContentInternal(a: GenArgs): Promise<any> {
       },
       { onConflict: "cache_key" },
     );
+  if (upsertErr) console.error("[generate-content] cache upsert failed", upsertErr);
 
   return content;
 }

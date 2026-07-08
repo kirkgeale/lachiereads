@@ -13,6 +13,73 @@ const today = () => new Date().toISOString().slice(0, 10);
 const OUTCOME_ENUM = z.enum(["got_it", "self_corrected", "prompted", "missed", "hesitated"]);
 const CHALLENGE_OUTCOMES = new Set(["missed", "prompted", "self_corrected", "hesitated"]);
 
+// Severity order: worst-outcome-wins collapse per (item_type,item_ref)
+// so multiple cards referencing the same GPC in one session (target +
+// interference + warmup) can never stack SRS updates.
+const OUTCOME_SEVERITY: Record<string, number> = {
+  missed: 4, prompted: 3, hesitated: 3, self_corrected: 2, got_it: 1,
+};
+function worstOutcome(events: { outcome: string }[]): Outcome {
+  let best: string = "got_it";
+  let bestScore = 0;
+  for (const e of events) {
+    const s = OUTCOME_SEVERITY[e.outcome] ?? 0;
+    if (s > bestScore) { bestScore = s; best = e.outcome; }
+  }
+  // Normalise legacy "hesitated" (accepted by validator) to "prompted"
+  // for the Leitner update, since the SRS module doesn't define it.
+  if (best === "hesitated") best = "prompted";
+  return best as Outcome;
+}
+function collapseByItem(events: { item_type: string; item_ref: string; outcome: string }[]) {
+  const groups = new Map<string, { item_type: string; item_ref: string; outcome: string }[]>();
+  for (const e of events) {
+    if (!e.item_ref) continue;
+    const key = `${e.item_type}::${e.item_ref}`;
+    (groups.get(key) ?? groups.set(key, []).get(key)!).push(e);
+  }
+  return [...groups.entries()].map(([key, evs]) => {
+    const [item_type, item_ref] = key.split("::");
+    return { item_type, item_ref, outcome: worstOutcome(evs) };
+  });
+}
+
+// Update the learner's daily-streak reward. Called from both session save and
+// flashcard save so weekday flashcards keep the streak alive.
+async function updateStreakAndStars(
+  supabase: any,
+  learner_id: string,
+  starsToAdd: number,
+) {
+  const t = today();
+  const { data: r } = await supabase
+    .from("rewards")
+    .select("stars, current_streak_days, longest_streak, last_session_date")
+    .eq("learner_id", learner_id)
+    .maybeSingle();
+  let current = r?.current_streak_days ?? 0;
+  const last = r?.last_session_date;
+  if (last === t) {
+    // already counted today
+  } else if (last) {
+    const diffDays = Math.round((new Date(t).getTime() - new Date(last).getTime()) / 86400000);
+    current = diffDays === 1 ? current + 1 : 1;
+  } else {
+    current = 1;
+  }
+  const longest = Math.max(r?.longest_streak ?? 0, current);
+  await supabase
+    .from("rewards")
+    .update({
+      stars: (r?.stars ?? 0) + starsToAdd,
+      current_streak_days: current,
+      longest_streak: longest,
+      last_session_date: t,
+    })
+    .eq("learner_id", learner_id);
+}
+
+
 async function computeSessionSeq(supabase: any, learner_id: string): Promise<number> {
   // How many sessions has this learner started today? Adds +1 as the seq for the new one.
   const startOfDay = new Date();
@@ -140,8 +207,35 @@ export const startSession = createServerFn({ method: "POST" })
     const allowedGraphemes = (reachedGpcs ?? []).map((r: any) => r.gpcs.grapheme as string);
     const allowedGpcIds = (reachedGpcs ?? []).map((r: any) => r.gpc_id as string);
 
-    // Current phase = highest phase among any reached GPC (defaults to 1)
-    const currentPhase = Math.max(1, ...((reachedGpcs ?? []).map((r: any) => r.gpcs?.phase ?? 1)));
+    // effectivePhase = highest phase P where every earlier phase has >=60%
+    // coverage (any status != not_started) and phase P has > 0. Prevents a
+    // single advanced sound unlocking sentence/story stages prematurely.
+    const { data: allGpcRows } = await supabase
+      .from("gpcs")
+      .select("id, phase");
+    const reachedIds = new Set(allowedGpcIds);
+    const phaseTotals = new Map<number, number>();
+    const phaseReached = new Map<number, number>();
+    for (const g of (allGpcRows ?? []) as any[]) {
+      phaseTotals.set(g.phase, (phaseTotals.get(g.phase) ?? 0) + 1);
+      if (reachedIds.has(g.id)) phaseReached.set(g.phase, (phaseReached.get(g.phase) ?? 0) + 1);
+    }
+    let effectivePhase = 1;
+    const phaseNums = [...phaseTotals.keys()].sort((a, b) => a - b);
+    for (const p of phaseNums) {
+      const reached = phaseReached.get(p) ?? 0;
+      const total = phaseTotals.get(p) ?? 0;
+      const cov = total ? reached / total : 0;
+      if (reached === 0) break;
+      const priorOk = phaseNums.filter((q) => q < p).every((q) => {
+        const t = phaseTotals.get(q) ?? 0; const r = phaseReached.get(q) ?? 0;
+        return t === 0 || r / t >= 0.6;
+      });
+      if (!priorOk) break;
+      effectivePhase = p;
+      if (cov < 0.6) break;
+    }
+    const currentPhase = effectivePhase;
 
     const { data: knownHwRows } = await supabase
       .from("learner_heart_word_status")
@@ -447,10 +541,14 @@ export const saveSessionEvents = createServerFn({ method: "POST" })
 
     const newlySecureGpcIds: string[] = [];
 
-    const gpcEvents = data.events.filter((e) => e.item_type === "gpc" && e.item_ref);
-    const hwEvents = data.events.filter((e) => e.item_type === "heart_word" && e.item_ref);
+    // Collapse per (item_type, item_ref): a session can reference the same GPC
+    // from multiple cards (target + interference + warmup); only the WORST
+    // outcome should drive a single Leitner update.
+    const collapsed = collapseByItem(data.events);
+    const gpcCollapsed = collapsed.filter((e) => e.item_type === "gpc");
+    const hwCollapsed = collapsed.filter((e) => e.item_type === "heart_word");
 
-    for (const ev of gpcEvents) {
+    for (const ev of gpcCollapsed) {
       const { data: row } = await supabase
         .from("learner_gpc_status")
         .select("leitner_box, correct_streak, status")
@@ -458,7 +556,7 @@ export const saveSessionEvents = createServerFn({ method: "POST" })
         .eq("gpc_id", ev.item_ref)
         .maybeSingle();
       if (!row) continue;
-      const res = applyOutcome({ box: row.leitner_box, streak: row.correct_streak, outcome: ev.outcome as Outcome });
+      const res = applyOutcome({ box: row.leitner_box, streak: row.correct_streak, outcome: ev.outcome });
       await supabase
         .from("learner_gpc_status")
         .update({
@@ -472,7 +570,7 @@ export const saveSessionEvents = createServerFn({ method: "POST" })
         .eq("gpc_id", ev.item_ref);
       if (res.status === "secure" && row.status !== "secure") newlySecureGpcIds.push(ev.item_ref);
     }
-    for (const ev of hwEvents) {
+    for (const ev of hwCollapsed) {
       const { data: row } = await supabase
         .from("learner_heart_word_status")
         .select("leitner_box, correct_streak")
@@ -480,7 +578,7 @@ export const saveSessionEvents = createServerFn({ method: "POST" })
         .eq("heart_word_id", ev.item_ref)
         .maybeSingle();
       if (!row) continue;
-      const res = applyOutcome({ box: row.leitner_box, streak: row.correct_streak, outcome: ev.outcome as Outcome });
+      const res = applyOutcome({ box: row.leitner_box, streak: row.correct_streak, outcome: ev.outcome });
       await supabase
         .from("learner_heart_word_status")
         .update({
@@ -544,39 +642,12 @@ export const saveSessionEvents = createServerFn({ method: "POST" })
     const stars =
       data.events.filter((e) => e.outcome === "got_it").length +
       Math.floor(data.events.filter((e) => e.outcome === "self_corrected").length / 2);
-    const t = today();
-    const { data: r } = await supabase
-      .from("rewards")
-      .select("stars, current_streak_days, longest_streak, last_session_date")
-      .eq("learner_id", data.learner_id)
-      .maybeSingle();
-    let current = r?.current_streak_days ?? 0;
-    const last = r?.last_session_date;
-    if (last === t) {
-      // same day
-    } else if (last) {
-      const lastDate = new Date(last);
-      const todayDate = new Date(t);
-      const diffDays = Math.round((todayDate.getTime() - lastDate.getTime()) / 86400000);
-      current = diffDays === 1 ? current + 1 : 1;
-    } else {
-      current = 1;
-    }
-    const longest = Math.max(r?.longest_streak ?? 0, current);
-    await supabase
-      .from("rewards")
-      .update({
-        stars: (r?.stars ?? 0) + stars,
-        current_streak_days: current,
-        longest_streak: longest,
-        last_session_date: t,
-      })
-      .eq("learner_id", data.learner_id);
+    await updateStreakAndStars(supabase, data.learner_id, stars);
 
     return { ok: true, newly_secure_gpc_ids: newlySecureGpcIds, stars_awarded: stars };
   });
 
-// -------- FLASHCARDS: balanced 20-card mix (sounds + heart words + decodable words) --------
+// -------- FLASHCARDS: balanced 12-card mix (sounds + heart words + decodable words) --------
 export const buildFlashcardDeck = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { learner_id: string; size?: number }) =>
@@ -584,15 +655,15 @@ export const buildFlashcardDeck = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }): Promise<SessionCard[]> => {
     const { supabase } = context;
-    const size = data.size ?? 20;
+    const size = data.size ?? 12;
     const t = today();
     const sessionSeq = await computeSessionSeq(supabase, data.learner_id);
     const freshnessSalt = `${t}#fc#${sessionSeq}`;
 
-    // Target counts within the deck
-    const targetGpcCount = Math.round(size * 0.4);   // ~8 of 20
-    const targetHwCount = Math.round(size * 0.2);    // ~4 of 20
-    const targetWordCount = size - targetGpcCount - targetHwCount; // ~8 of 20
+    // Target counts within the deck (~5 GPCs, ~3 heart words, ~4 decodable words)
+    const targetGpcCount = Math.max(1, Math.round(size * 0.42));
+    const targetHwCount = Math.max(1, Math.round(size * 0.25));
+    const targetWordCount = size - targetGpcCount - targetHwCount;
 
     // --- GPCs: due first, top up with active-not-due ---
     const { data: dueGpcs } = await supabase
@@ -749,7 +820,8 @@ export const saveFlashcardEvents = createServerFn({ method: "POST" })
     }
 
     const newlySecure: string[] = [];
-    for (const ev of data.events) {
+    const collapsed = collapseByItem(data.events);
+    for (const ev of collapsed) {
       if (ev.item_type === "gpc") {
         const { data: row } = await supabase
           .from("learner_gpc_status")
@@ -758,7 +830,7 @@ export const saveFlashcardEvents = createServerFn({ method: "POST" })
           .eq("gpc_id", ev.item_ref)
           .maybeSingle();
         if (!row) continue;
-        const res = applyOutcome({ box: row.leitner_box, streak: row.correct_streak, outcome: ev.outcome as Outcome });
+        const res = applyOutcome({ box: row.leitner_box, streak: row.correct_streak, outcome: ev.outcome });
         await supabase
           .from("learner_gpc_status")
           .update({
@@ -779,7 +851,7 @@ export const saveFlashcardEvents = createServerFn({ method: "POST" })
           .eq("heart_word_id", ev.item_ref)
           .maybeSingle();
         if (!row) continue;
-        const res = applyOutcome({ box: row.leitner_box, streak: row.correct_streak, outcome: ev.outcome as Outcome });
+        const res = applyOutcome({ box: row.leitner_box, streak: row.correct_streak, outcome: ev.outcome });
         await supabase
           .from("learner_heart_word_status")
           .update({
@@ -797,15 +869,8 @@ export const saveFlashcardEvents = createServerFn({ method: "POST" })
     const stars =
       data.events.filter((e) => e.outcome === "got_it").length +
       Math.floor(data.events.filter((e) => e.outcome === "self_corrected").length / 2);
-    const { data: r } = await supabase
-      .from("rewards")
-      .select("stars")
-      .eq("learner_id", data.learner_id)
-      .maybeSingle();
-    await supabase
-      .from("rewards")
-      .update({ stars: (r?.stars ?? 0) + stars })
-      .eq("learner_id", data.learner_id);
+    // Flashcards count toward the daily streak, same as full sessions.
+    await updateStreakAndStars(supabase, data.learner_id, stars);
 
     return { ok: true, newly_secure_gpc_ids: newlySecure, stars_awarded: stars };
   });

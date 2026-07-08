@@ -136,6 +136,7 @@ export type Database = {
       }
       gpcs: {
         Row: {
+          assessment_word: string | null
           example_word: string
           grapheme: string
           id: string
@@ -145,6 +146,7 @@ export type Database = {
           type: Database["public"]["Enums"]["gpc_type"]
         }
         Insert: {
+          assessment_word?: string | null
           example_word: string
           grapheme: string
           id?: string
@@ -154,6 +156,7 @@ export type Database = {
           type: Database["public"]["Enums"]["gpc_type"]
         }
         Update: {
+          assessment_word?: string | null
           example_word?: string
           grapheme?: string
           id?: string
