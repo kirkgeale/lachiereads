@@ -220,6 +220,8 @@ function SessionScreen() {
               Let's begin
             </button>
           </div>
+        ) : current.stage === "target" ? (
+          <LessonCard card={current} onOutcome={onOutcome} />
         ) : (
           <>
             <ItemCard card={current} stageLabel={stageBreak ? STAGE_LABELS[stageBreak] : undefined} />
