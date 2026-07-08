@@ -642,34 +642,7 @@ export const saveSessionEvents = createServerFn({ method: "POST" })
     const stars =
       data.events.filter((e) => e.outcome === "got_it").length +
       Math.floor(data.events.filter((e) => e.outcome === "self_corrected").length / 2);
-    const t = today();
-    const { data: r } = await supabase
-      .from("rewards")
-      .select("stars, current_streak_days, longest_streak, last_session_date")
-      .eq("learner_id", data.learner_id)
-      .maybeSingle();
-    let current = r?.current_streak_days ?? 0;
-    const last = r?.last_session_date;
-    if (last === t) {
-      // same day
-    } else if (last) {
-      const lastDate = new Date(last);
-      const todayDate = new Date(t);
-      const diffDays = Math.round((todayDate.getTime() - lastDate.getTime()) / 86400000);
-      current = diffDays === 1 ? current + 1 : 1;
-    } else {
-      current = 1;
-    }
-    const longest = Math.max(r?.longest_streak ?? 0, current);
-    await supabase
-      .from("rewards")
-      .update({
-        stars: (r?.stars ?? 0) + stars,
-        current_streak_days: current,
-        longest_streak: longest,
-        last_session_date: t,
-      })
-      .eq("learner_id", data.learner_id);
+    await updateStreakAndStars(supabase, data.learner_id, stars);
 
     return { ok: true, newly_secure_gpc_ids: newlySecureGpcIds, stars_awarded: stars };
   });
