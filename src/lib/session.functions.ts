@@ -140,8 +140,35 @@ export const startSession = createServerFn({ method: "POST" })
     const allowedGraphemes = (reachedGpcs ?? []).map((r: any) => r.gpcs.grapheme as string);
     const allowedGpcIds = (reachedGpcs ?? []).map((r: any) => r.gpc_id as string);
 
-    // Current phase = highest phase among any reached GPC (defaults to 1)
-    const currentPhase = Math.max(1, ...((reachedGpcs ?? []).map((r: any) => r.gpcs?.phase ?? 1)));
+    // effectivePhase = highest phase P where every earlier phase has >=60%
+    // coverage (any status != not_started) and phase P has > 0. Prevents a
+    // single advanced sound unlocking sentence/story stages prematurely.
+    const { data: allGpcRows } = await supabase
+      .from("gpcs")
+      .select("id, phase");
+    const reachedIds = new Set(allowedGpcIds);
+    const phaseTotals = new Map<number, number>();
+    const phaseReached = new Map<number, number>();
+    for (const g of (allGpcRows ?? []) as any[]) {
+      phaseTotals.set(g.phase, (phaseTotals.get(g.phase) ?? 0) + 1);
+      if (reachedIds.has(g.id)) phaseReached.set(g.phase, (phaseReached.get(g.phase) ?? 0) + 1);
+    }
+    let effectivePhase = 1;
+    const phaseNums = [...phaseTotals.keys()].sort((a, b) => a - b);
+    for (const p of phaseNums) {
+      const reached = phaseReached.get(p) ?? 0;
+      const total = phaseTotals.get(p) ?? 0;
+      const cov = total ? reached / total : 0;
+      if (reached === 0) break;
+      const priorOk = phaseNums.filter((q) => q < p).every((q) => {
+        const t = phaseTotals.get(q) ?? 0; const r = phaseReached.get(q) ?? 0;
+        return t === 0 || r / t >= 0.6;
+      });
+      if (!priorOk) break;
+      effectivePhase = p;
+      if (cov < 0.6) break;
+    }
+    const currentPhase = effectivePhase;
 
     const { data: knownHwRows } = await supabase
       .from("learner_heart_word_status")
