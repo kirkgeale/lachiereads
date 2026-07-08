@@ -126,18 +126,9 @@ export const startSession = createServerFn({ method: "POST" })
       : { data: null };
 
     const targetCards: SessionCard[] = [];
-    if (targetGpc) {
-      targetCards.push({
-        key: `t-${targetGpc.id}`,
-        item_type: "gpc",
-        item_ref: targetGpc.id,
-        display: targetGpc.grapheme,
-        sound_label: targetGpc.sound_label,
-        example_word: targetGpc.example_word,
-        interference: targetInterference ?? null,
-        stage: "target",
-      });
-    }
+    // Target card is populated AFTER the AI bundle is generated so we can
+    // attach lesson-specific teaching content (examples, parent script).
+
 
     // --- Learner phase & context for AI generation ---
     const { data: reachedGpcs } = await supabase
