@@ -14,9 +14,18 @@ export const Route = createFileRoute("/parent/assessment/$learnerId")({
   component: AssessmentPage,
 });
 
+type Strand =
+  | "letter_sounds"
+  | "simple_words"
+  | "letter_team_words"
+  | "heart_words"
+  | "pseudowords"
+  | "sentences";
+
 type Probe = {
   id: string;
   kind: string;
+  strand: Strand;
   prompt: string;
   target_grapheme?: string;
   target_heart_word?: string;
@@ -24,6 +33,15 @@ type Probe = {
   notes?: string;
 };
 type Outcome = "correct" | "self_corrected" | "prompted" | "missed" | "skipped";
+
+const STRAND_LABEL: Record<Strand, string> = {
+  letter_sounds: "letter sounds",
+  simple_words: "simple words",
+  letter_team_words: "letter-team words",
+  heart_words: "heart words",
+  pseudowords: "made-up words",
+  sentences: "sentences",
+};
 
 function AssessmentPage() {
   const { learnerId } = Route.useParams();
