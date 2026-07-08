@@ -109,9 +109,57 @@ function AssessmentPage() {
   const record = (outcome: Outcome) => {
     if (!session) return;
     const probe = session.probes[idx];
-    setResults((prev) => [...prev, { ...probe, outcome }]);
-    setIdx((i) => i + 1);
+    const nextResults = [...results, { ...probe, outcome }];
+
+    // Discontinue logic: within a strand, 3 consecutive missed+skipped ->
+    // auto-skip the rest of that strand.
+    const isFail = (o: Outcome) => o === "missed" || o === "skipped";
+    let cursor = idx + 1;
+    const strandFailStreak = (() => {
+      let n = 0;
+      for (let i = nextResults.length - 1; i >= 0; i--) {
+        const r = nextResults[i];
+        if (r.strand !== probe.strand) break;
+        if (isFail(r.outcome)) n++;
+        else break;
+      }
+      return n;
+    })();
+
+    if (strandFailStreak >= 3) {
+      const strandName = STRAND_LABEL[probe.strand] ?? probe.strand;
+      let skipped = 0;
+      while (cursor < session.probes.length && session.probes[cursor].strand === probe.strand) {
+        nextResults.push({ ...session.probes[cursor], outcome: "skipped" });
+        cursor++;
+        skipped++;
+      }
+      if (skipped > 0) toast(`Skipping ahead — we've found the edge of ${strandName}.`);
+    }
+
+    setResults(nextResults);
+    setIdx(cursor);
   };
+
+  // Count consecutive missed at difficulty >= 4 across the tail, for the
+  // "Finish here" prompt.
+  const hardFailStreak = (() => {
+    let n = 0;
+    for (let i = results.length - 1; i >= 0; i--) {
+      const r = results[i];
+      if (r.difficulty < 4) continue;
+      if (r.outcome === "missed" || r.outcome === "skipped") n++;
+      else break;
+    }
+    return n;
+  })();
+
+  const finishNow = () => {
+    if (!session) return;
+    const remaining = session.probes.slice(idx).map((p) => ({ ...p, outcome: "skipped" as Outcome }));
+    finalMut.mutate([...results, ...remaining]);
+  };
+
 
   const finish = () => finalMut.mutate(results);
 
