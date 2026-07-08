@@ -1,6 +1,15 @@
+export type AssessmentStrand =
+  | "letter_sounds"
+  | "simple_words"
+  | "letter_team_words"
+  | "heart_words"
+  | "pseudowords"
+  | "sentences";
+
 export interface AssessmentProbe {
   id: string;
   kind: string;
+  strand: AssessmentStrand;
   prompt: string;
   target_grapheme?: string;
   target_heart_word?: string;
