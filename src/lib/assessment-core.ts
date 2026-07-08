@@ -95,6 +95,7 @@ export async function loadAssessmentContext(supabase: any, learner_id: string) {
         sound_label: g.sound_label,
         phase: g.phase,
         example_word: g.example_word,
+        assessment_word: g.assessment_word ?? null,
         order_index: g.order_index,
       })),
       all_heart_words: heartWords.map((h: any) => h.word),
