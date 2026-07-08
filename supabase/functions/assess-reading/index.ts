@@ -1,12 +1,15 @@
 // Reading Garden - AI-guided reading level assessment
 // Two actions:
-//   { action: "plan",   learner: {...} }               -> ordered probe battery
-//   { action: "report", learner: {...}, results: [...] } -> report + updates
+//   { action: "report",     learner, results, previous_assessment? }
+//     -> full parent-facing report (Opus with adaptive thinking)
+//   { action: "next_focus", learner, actual_next_target }
+//     -> 2-3 warm sentences naming the app-chosen next target (Sonnet, fast)
 //
-// Uses claude-sonnet-4-5 with extended thinking for careful, best-practice
-// synthetic-phonics judgement.
+// Probes are built client-side in src/lib/assessment-core.ts; the "plan"
+// action was retired and is no longer part of this function.
 
-const CLAUDE_MODEL = "claude-opus-4-8";
+const CLAUDE_MODEL_REPORT = "claude-opus-4-8";     // report: adaptive thinking
+const CLAUDE_MODEL_FAST   = "claude-sonnet-5";     // next_focus: short, no thinking
 const THINKING_BUDGET = 4000;
 const MAX_TOKENS = 6000;
 
