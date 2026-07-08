@@ -538,10 +538,14 @@ export const saveSessionEvents = createServerFn({ method: "POST" })
 
     const newlySecureGpcIds: string[] = [];
 
-    const gpcEvents = data.events.filter((e) => e.item_type === "gpc" && e.item_ref);
-    const hwEvents = data.events.filter((e) => e.item_type === "heart_word" && e.item_ref);
+    // Collapse per (item_type, item_ref): a session can reference the same GPC
+    // from multiple cards (target + interference + warmup); only the WORST
+    // outcome should drive a single Leitner update.
+    const collapsed = collapseByItem(data.events);
+    const gpcCollapsed = collapsed.filter((e) => e.item_type === "gpc");
+    const hwCollapsed = collapsed.filter((e) => e.item_type === "heart_word");
 
-    for (const ev of gpcEvents) {
+    for (const ev of gpcCollapsed) {
       const { data: row } = await supabase
         .from("learner_gpc_status")
         .select("leitner_box, correct_streak, status")
@@ -549,7 +553,7 @@ export const saveSessionEvents = createServerFn({ method: "POST" })
         .eq("gpc_id", ev.item_ref)
         .maybeSingle();
       if (!row) continue;
-      const res = applyOutcome({ box: row.leitner_box, streak: row.correct_streak, outcome: ev.outcome as Outcome });
+      const res = applyOutcome({ box: row.leitner_box, streak: row.correct_streak, outcome: ev.outcome });
       await supabase
         .from("learner_gpc_status")
         .update({
@@ -563,7 +567,7 @@ export const saveSessionEvents = createServerFn({ method: "POST" })
         .eq("gpc_id", ev.item_ref);
       if (res.status === "secure" && row.status !== "secure") newlySecureGpcIds.push(ev.item_ref);
     }
-    for (const ev of hwEvents) {
+    for (const ev of hwCollapsed) {
       const { data: row } = await supabase
         .from("learner_heart_word_status")
         .select("leitner_box, correct_streak")
@@ -571,7 +575,7 @@ export const saveSessionEvents = createServerFn({ method: "POST" })
         .eq("heart_word_id", ev.item_ref)
         .maybeSingle();
       if (!row) continue;
-      const res = applyOutcome({ box: row.leitner_box, streak: row.correct_streak, outcome: ev.outcome as Outcome });
+      const res = applyOutcome({ box: row.leitner_box, streak: row.correct_streak, outcome: ev.outcome });
       await supabase
         .from("learner_heart_word_status")
         .update({
