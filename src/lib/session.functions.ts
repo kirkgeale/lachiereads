@@ -820,7 +820,8 @@ export const saveFlashcardEvents = createServerFn({ method: "POST" })
     }
 
     const newlySecure: string[] = [];
-    for (const ev of data.events) {
+    const collapsed = collapseByItem(data.events);
+    for (const ev of collapsed) {
       if (ev.item_type === "gpc") {
         const { data: row } = await supabase
           .from("learner_gpc_status")
@@ -829,7 +830,7 @@ export const saveFlashcardEvents = createServerFn({ method: "POST" })
           .eq("gpc_id", ev.item_ref)
           .maybeSingle();
         if (!row) continue;
-        const res = applyOutcome({ box: row.leitner_box, streak: row.correct_streak, outcome: ev.outcome as Outcome });
+        const res = applyOutcome({ box: row.leitner_box, streak: row.correct_streak, outcome: ev.outcome });
         await supabase
           .from("learner_gpc_status")
           .update({
@@ -850,7 +851,7 @@ export const saveFlashcardEvents = createServerFn({ method: "POST" })
           .eq("heart_word_id", ev.item_ref)
           .maybeSingle();
         if (!row) continue;
-        const res = applyOutcome({ box: row.leitner_box, streak: row.correct_streak, outcome: ev.outcome as Outcome });
+        const res = applyOutcome({ box: row.leitner_box, streak: row.correct_streak, outcome: ev.outcome });
         await supabase
           .from("learner_heart_word_status")
           .update({
@@ -868,15 +869,8 @@ export const saveFlashcardEvents = createServerFn({ method: "POST" })
     const stars =
       data.events.filter((e) => e.outcome === "got_it").length +
       Math.floor(data.events.filter((e) => e.outcome === "self_corrected").length / 2);
-    const { data: r } = await supabase
-      .from("rewards")
-      .select("stars")
-      .eq("learner_id", data.learner_id)
-      .maybeSingle();
-    await supabase
-      .from("rewards")
-      .update({ stars: (r?.stars ?? 0) + stars })
-      .eq("learner_id", data.learner_id);
+    // Flashcards count toward the daily streak, same as full sessions.
+    await updateStreakAndStars(supabase, data.learner_id, stars);
 
     return { ok: true, newly_secure_gpc_ids: newlySecure, stars_awarded: stars };
   });
