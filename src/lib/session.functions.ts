@@ -13,6 +13,70 @@ const today = () => new Date().toISOString().slice(0, 10);
 const OUTCOME_ENUM = z.enum(["got_it", "self_corrected", "prompted", "missed", "hesitated"]);
 const CHALLENGE_OUTCOMES = new Set(["missed", "prompted", "self_corrected", "hesitated"]);
 
+// Severity order: worst-outcome-wins collapse per (item_type,item_ref)
+// so multiple cards referencing the same GPC in one session (target +
+// interference + warmup) can never stack SRS updates.
+const OUTCOME_SEVERITY: Record<string, number> = {
+  missed: 4, prompted: 3, hesitated: 3, self_corrected: 2, got_it: 1,
+};
+function worstOutcome(events: QueuedEvent[]): Outcome {
+  let best: Outcome = "got_it";
+  let bestScore = 0;
+  for (const e of events) {
+    const s = OUTCOME_SEVERITY[e.outcome as string] ?? 0;
+    if (s > bestScore) { bestScore = s; best = e.outcome as Outcome; }
+  }
+  return best;
+}
+function collapseByItem(events: QueuedEvent[]) {
+  const groups = new Map<string, QueuedEvent[]>();
+  for (const e of events) {
+    if (!e.item_ref) continue;
+    const key = `${e.item_type}::${e.item_ref}`;
+    (groups.get(key) ?? groups.set(key, []).get(key)!).push(e);
+  }
+  return [...groups.entries()].map(([key, evs]) => {
+    const [item_type, item_ref] = key.split("::");
+    return { item_type, item_ref, outcome: worstOutcome(evs) };
+  });
+}
+
+// Update the learner's daily-streak reward. Called from both session save and
+// flashcard save so weekday flashcards keep the streak alive.
+async function updateStreakAndStars(
+  supabase: any,
+  learner_id: string,
+  starsToAdd: number,
+) {
+  const t = today();
+  const { data: r } = await supabase
+    .from("rewards")
+    .select("stars, current_streak_days, longest_streak, last_session_date")
+    .eq("learner_id", learner_id)
+    .maybeSingle();
+  let current = r?.current_streak_days ?? 0;
+  const last = r?.last_session_date;
+  if (last === t) {
+    // already counted today
+  } else if (last) {
+    const diffDays = Math.round((new Date(t).getTime() - new Date(last).getTime()) / 86400000);
+    current = diffDays === 1 ? current + 1 : 1;
+  } else {
+    current = 1;
+  }
+  const longest = Math.max(r?.longest_streak ?? 0, current);
+  await supabase
+    .from("rewards")
+    .update({
+      stars: (r?.stars ?? 0) + starsToAdd,
+      current_streak_days: current,
+      longest_streak: longest,
+      last_session_date: t,
+    })
+    .eq("learner_id", learner_id);
+}
+
+
 async function computeSessionSeq(supabase: any, learner_id: string): Promise<number> {
   // How many sessions has this learner started today? Adds +1 as the seq for the new one.
   const startOfDay = new Date();
