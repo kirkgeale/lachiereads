@@ -19,17 +19,20 @@ const CHALLENGE_OUTCOMES = new Set(["missed", "prompted", "self_corrected", "hes
 const OUTCOME_SEVERITY: Record<string, number> = {
   missed: 4, prompted: 3, hesitated: 3, self_corrected: 2, got_it: 1,
 };
-function worstOutcome(events: QueuedEvent[]): Outcome {
-  let best: Outcome = "got_it";
+function worstOutcome(events: { outcome: string }[]): Outcome {
+  let best: string = "got_it";
   let bestScore = 0;
   for (const e of events) {
-    const s = OUTCOME_SEVERITY[e.outcome as string] ?? 0;
-    if (s > bestScore) { bestScore = s; best = e.outcome as Outcome; }
+    const s = OUTCOME_SEVERITY[e.outcome] ?? 0;
+    if (s > bestScore) { bestScore = s; best = e.outcome; }
   }
-  return best;
+  // Normalise legacy "hesitated" (accepted by validator) to "prompted"
+  // for the Leitner update, since the SRS module doesn't define it.
+  if (best === "hesitated") best = "prompted";
+  return best as Outcome;
 }
-function collapseByItem(events: QueuedEvent[]) {
-  const groups = new Map<string, QueuedEvent[]>();
+function collapseByItem(events: { item_type: string; item_ref: string; outcome: string }[]) {
+  const groups = new Map<string, { item_type: string; item_ref: string; outcome: string }[]>();
   for (const e of events) {
     if (!e.item_ref) continue;
     const key = `${e.item_type}::${e.item_ref}`;
