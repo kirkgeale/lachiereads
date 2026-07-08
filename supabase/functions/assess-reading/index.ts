@@ -99,12 +99,16 @@ type ReportJson = {
   heart_word_updates: { word: string; status: string }[];
 };
 
-async function callClaude(system: string, user: string, opts?: { thinking?: boolean; max_tokens?: number }): Promise<string> {
+async function callClaude(
+  system: string,
+  user: string,
+  opts?: { thinking?: boolean; max_tokens?: number; model?: string },
+): Promise<string> {
   const apiKey = Deno.env.get("ANTHROPIC_API_KEY");
   if (!apiKey) throw new Error("missing ANTHROPIC_API_KEY");
   const useThinking = opts?.thinking !== false;
   const body: Record<string, unknown> = {
-    model: CLAUDE_MODEL,
+    model: opts?.model ?? CLAUDE_MODEL_REPORT,
     max_tokens: opts?.max_tokens ?? MAX_TOKENS,
     system,
     messages: [{ role: "user", content: user }],
