@@ -271,7 +271,32 @@ export const startSession = createServerFn({ method: "POST" })
       });
     }
 
-    // --- Blend ladder (phase >= 2) ---
+    // Build the target/lesson card now the bundle (with focus + examples) is available.
+    if (targetGpc) {
+      const focusExamples = Array.isArray(bundle?.focus?.examples)
+        ? (bundle.focus.examples as unknown[]).map(String).filter(Boolean).slice(0, 4)
+        : [];
+      const lessonExamples = focusExamples.length
+        ? focusExamples
+        : ([targetGpc.example_word].filter(Boolean) as string[]);
+      targetCards.push({
+        key: `t-${targetGpc.id}`,
+        item_type: "gpc",
+        item_ref: targetGpc.id,
+        display: targetGpc.grapheme,
+        sound_label: targetGpc.sound_label,
+        example_word: targetGpc.example_word,
+        interference: targetInterference ?? null,
+        stage: "target",
+        meta: {
+          kind: "lesson",
+          concept: bundle?.focus?.concept ?? `The letter '${targetGpc.grapheme}' says ${targetGpc.sound_label}.`,
+          parent_intro: bundle?.focus?.parent_intro ?? "",
+          examples: lessonExamples,
+        },
+      });
+    }
+
     const blendCards: SessionCard[] = [];
     if (currentPhase >= 2 && Array.isArray(bundle?.blend_words)) {
       for (const w of bundle.blend_words.slice(0, 5)) {
