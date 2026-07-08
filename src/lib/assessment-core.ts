@@ -22,7 +22,7 @@ export interface AssessmentLearnerContext {
   secure_graphemes: string[];
   known_heart_words: string[];
   interference_pairs: { grapheme: string; swedish_value: string; english_value: string }[];
-  all_graphemes: { grapheme: string; sound_label: string; phase: number; example_word: string; order_index?: number }[];
+  all_graphemes: { grapheme: string; sound_label: string; phase: number; example_word: string; assessment_word?: string | null; order_index?: number }[];
   all_heart_words: string[];
 }
 
