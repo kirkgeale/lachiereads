@@ -24,6 +24,7 @@ export type Database = {
           learner_id: string
           probes_json: Json
           report_json: Json | null
+          subject: string
           summary: string | null
           updated_at: string
         }
@@ -36,6 +37,7 @@ export type Database = {
           learner_id: string
           probes_json?: Json
           report_json?: Json | null
+          subject?: string
           summary?: string | null
           updated_at?: string
         }
@@ -48,6 +50,7 @@ export type Database = {
           learner_id?: string
           probes_json?: Json
           report_json?: Json | null
+          subject?: string
           summary?: string | null
           updated_at?: string
         }
@@ -104,6 +107,7 @@ export type Database = {
           created_at: string
           id: string
           learner_id: string | null
+          subject: string
           type: Database["public"]["Enums"]["content_type"]
         }
         Insert: {
@@ -113,6 +117,7 @@ export type Database = {
           created_at?: string
           id?: string
           learner_id?: string | null
+          subject?: string
           type: Database["public"]["Enums"]["content_type"]
         }
         Update: {
@@ -122,6 +127,7 @@ export type Database = {
           created_at?: string
           id?: string
           learner_id?: string | null
+          subject?: string
           type?: Database["public"]["Enums"]["content_type"]
         }
         Relationships: [
@@ -353,6 +359,57 @@ export type Database = {
           },
         ]
       }
+      learner_math_status: {
+        Row: {
+          correct_streak: number
+          id: string
+          last_seen: string | null
+          learner_id: string
+          leitner_box: number
+          next_due_date: string
+          skill_id: string
+          status: Database["public"]["Enums"]["item_status"]
+          updated_at: string
+        }
+        Insert: {
+          correct_streak?: number
+          id?: string
+          last_seen?: string | null
+          learner_id: string
+          leitner_box?: number
+          next_due_date?: string
+          skill_id: string
+          status?: Database["public"]["Enums"]["item_status"]
+          updated_at?: string
+        }
+        Update: {
+          correct_streak?: number
+          id?: string
+          last_seen?: string | null
+          learner_id?: string
+          leitner_box?: number
+          next_due_date?: string
+          skill_id?: string
+          status?: Database["public"]["Enums"]["item_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "learner_math_status_learner_id_fkey"
+            columns: ["learner_id"]
+            isOneToOne: false
+            referencedRelation: "learners"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "learner_math_status_skill_id_fkey"
+            columns: ["skill_id"]
+            isOneToOne: false
+            referencedRelation: "math_skills"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       learners: {
         Row: {
           birthdate: string | null
@@ -386,6 +443,45 @@ export type Database = {
           notes?: string | null
           parent_id?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      math_skills: {
+        Row: {
+          code: string
+          description: string
+          example_problem: string | null
+          id: string
+          max_value: number
+          name: string
+          order_index: number
+          phase: number
+          self_gradable: boolean
+          strand: Database["public"]["Enums"]["math_strand"]
+        }
+        Insert: {
+          code: string
+          description: string
+          example_problem?: string | null
+          id?: string
+          max_value?: number
+          name: string
+          order_index: number
+          phase: number
+          self_gradable?: boolean
+          strand: Database["public"]["Enums"]["math_strand"]
+        }
+        Update: {
+          code?: string
+          description?: string
+          example_problem?: string | null
+          id?: string
+          max_value?: number
+          name?: string
+          order_index?: number
+          phase?: number
+          self_gradable?: boolean
+          strand?: Database["public"]["Enums"]["math_strand"]
         }
         Relationships: []
       }
@@ -498,6 +594,7 @@ export type Database = {
           learner_id: string
           parent_notes: string | null
           plan_json: Json
+          subject: string
         }
         Insert: {
           created_at?: string
@@ -507,6 +604,7 @@ export type Database = {
           learner_id: string
           parent_notes?: string | null
           plan_json?: Json
+          subject?: string
         }
         Update: {
           created_at?: string
@@ -516,6 +614,7 @@ export type Database = {
           learner_id?: string
           parent_notes?: string | null
           plan_json?: Json
+          subject?: string
         }
         Relationships: [
           {
@@ -566,8 +665,22 @@ export type Database = {
       gpc_type: "single" | "digraph" | "split_digraph" | "vowel_team"
       interference_status: "still_confuses" | "resolving" | "secure"
       item_status: "not_started" | "learning" | "practising" | "secure"
+      math_strand:
+        | "counting"
+        | "subitizing"
+        | "comparison"
+        | "number_bonds"
+        | "addition"
+        | "subtraction"
+        | "place_value"
+        | "word_problems"
       outcome: "got_it" | "hesitated" | "missed" | "self_corrected" | "prompted"
-      session_item_type: "gpc" | "heart_word" | "decodable_word"
+      session_item_type:
+        | "gpc"
+        | "heart_word"
+        | "decodable_word"
+        | "math_skill"
+        | "math_fact"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -706,8 +819,24 @@ export const Constants = {
       gpc_type: ["single", "digraph", "split_digraph", "vowel_team"],
       interference_status: ["still_confuses", "resolving", "secure"],
       item_status: ["not_started", "learning", "practising", "secure"],
+      math_strand: [
+        "counting",
+        "subitizing",
+        "comparison",
+        "number_bonds",
+        "addition",
+        "subtraction",
+        "place_value",
+        "word_problems",
+      ],
       outcome: ["got_it", "hesitated", "missed", "self_corrected", "prompted"],
-      session_item_type: ["gpc", "heart_word", "decodable_word"],
+      session_item_type: [
+        "gpc",
+        "heart_word",
+        "decodable_word",
+        "math_skill",
+        "math_fact",
+      ],
     },
   },
 } as const

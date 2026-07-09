@@ -14,11 +14,13 @@ import { Route as LearnerRouteImport } from './routes/learner'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ParentIndexRouteImport } from './routes/parent.index'
 import { Route as SessionLearnerIdRouteImport } from './routes/session.$learnerId'
+import { Route as SessionMathLearnerIdRouteImport } from './routes/session-math.$learnerId'
 import { Route as ParentLearnersRouteImport } from './routes/parent.learners'
 import { Route as FlashcardsLearnerIdRouteImport } from './routes/flashcards.$learnerId'
 import { Route as ParentSessionsLearnerIdRouteImport } from './routes/parent.sessions.$learnerId'
 import { Route as ParentQuickSetupLearnerIdRouteImport } from './routes/parent.quick-setup.$learnerId'
 import { Route as ParentPhonicsLearnerIdRouteImport } from './routes/parent.phonics.$learnerId'
+import { Route as ParentMathSetupLearnerIdRouteImport } from './routes/parent.math-setup.$learnerId'
 import { Route as ParentInterferenceLearnerIdRouteImport } from './routes/parent.interference.$learnerId'
 import { Route as ParentBenchmarkLearnerIdRouteImport } from './routes/parent.benchmark.$learnerId'
 import { Route as ParentAssessmentLearnerIdRouteImport } from './routes/parent.assessment.$learnerId'
@@ -48,6 +50,11 @@ const SessionLearnerIdRoute = SessionLearnerIdRouteImport.update({
   path: '/session/$learnerId',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SessionMathLearnerIdRoute = SessionMathLearnerIdRouteImport.update({
+  id: '/session-math/$learnerId',
+  path: '/session-math/$learnerId',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ParentLearnersRoute = ParentLearnersRouteImport.update({
   id: '/learners',
   path: '/learners',
@@ -74,6 +81,12 @@ const ParentPhonicsLearnerIdRoute = ParentPhonicsLearnerIdRouteImport.update({
   path: '/phonics/$learnerId',
   getParentRoute: () => ParentRoute,
 } as any)
+const ParentMathSetupLearnerIdRoute =
+  ParentMathSetupLearnerIdRouteImport.update({
+    id: '/math-setup/$learnerId',
+    path: '/math-setup/$learnerId',
+    getParentRoute: () => ParentRoute,
+  } as any)
 const ParentInterferenceLearnerIdRoute =
   ParentInterferenceLearnerIdRouteImport.update({
     id: '/interference/$learnerId',
@@ -99,11 +112,13 @@ export interface FileRoutesByFullPath {
   '/parent': typeof ParentRouteWithChildren
   '/flashcards/$learnerId': typeof FlashcardsLearnerIdRoute
   '/parent/learners': typeof ParentLearnersRoute
+  '/session-math/$learnerId': typeof SessionMathLearnerIdRoute
   '/session/$learnerId': typeof SessionLearnerIdRoute
   '/parent/': typeof ParentIndexRoute
   '/parent/assessment/$learnerId': typeof ParentAssessmentLearnerIdRoute
   '/parent/benchmark/$learnerId': typeof ParentBenchmarkLearnerIdRoute
   '/parent/interference/$learnerId': typeof ParentInterferenceLearnerIdRoute
+  '/parent/math-setup/$learnerId': typeof ParentMathSetupLearnerIdRoute
   '/parent/phonics/$learnerId': typeof ParentPhonicsLearnerIdRoute
   '/parent/quick-setup/$learnerId': typeof ParentQuickSetupLearnerIdRoute
   '/parent/sessions/$learnerId': typeof ParentSessionsLearnerIdRoute
@@ -113,11 +128,13 @@ export interface FileRoutesByTo {
   '/learner': typeof LearnerRoute
   '/flashcards/$learnerId': typeof FlashcardsLearnerIdRoute
   '/parent/learners': typeof ParentLearnersRoute
+  '/session-math/$learnerId': typeof SessionMathLearnerIdRoute
   '/session/$learnerId': typeof SessionLearnerIdRoute
   '/parent': typeof ParentIndexRoute
   '/parent/assessment/$learnerId': typeof ParentAssessmentLearnerIdRoute
   '/parent/benchmark/$learnerId': typeof ParentBenchmarkLearnerIdRoute
   '/parent/interference/$learnerId': typeof ParentInterferenceLearnerIdRoute
+  '/parent/math-setup/$learnerId': typeof ParentMathSetupLearnerIdRoute
   '/parent/phonics/$learnerId': typeof ParentPhonicsLearnerIdRoute
   '/parent/quick-setup/$learnerId': typeof ParentQuickSetupLearnerIdRoute
   '/parent/sessions/$learnerId': typeof ParentSessionsLearnerIdRoute
@@ -129,11 +146,13 @@ export interface FileRoutesById {
   '/parent': typeof ParentRouteWithChildren
   '/flashcards/$learnerId': typeof FlashcardsLearnerIdRoute
   '/parent/learners': typeof ParentLearnersRoute
+  '/session-math/$learnerId': typeof SessionMathLearnerIdRoute
   '/session/$learnerId': typeof SessionLearnerIdRoute
   '/parent/': typeof ParentIndexRoute
   '/parent/assessment/$learnerId': typeof ParentAssessmentLearnerIdRoute
   '/parent/benchmark/$learnerId': typeof ParentBenchmarkLearnerIdRoute
   '/parent/interference/$learnerId': typeof ParentInterferenceLearnerIdRoute
+  '/parent/math-setup/$learnerId': typeof ParentMathSetupLearnerIdRoute
   '/parent/phonics/$learnerId': typeof ParentPhonicsLearnerIdRoute
   '/parent/quick-setup/$learnerId': typeof ParentQuickSetupLearnerIdRoute
   '/parent/sessions/$learnerId': typeof ParentSessionsLearnerIdRoute
@@ -146,11 +165,13 @@ export interface FileRouteTypes {
     | '/parent'
     | '/flashcards/$learnerId'
     | '/parent/learners'
+    | '/session-math/$learnerId'
     | '/session/$learnerId'
     | '/parent/'
     | '/parent/assessment/$learnerId'
     | '/parent/benchmark/$learnerId'
     | '/parent/interference/$learnerId'
+    | '/parent/math-setup/$learnerId'
     | '/parent/phonics/$learnerId'
     | '/parent/quick-setup/$learnerId'
     | '/parent/sessions/$learnerId'
@@ -160,11 +181,13 @@ export interface FileRouteTypes {
     | '/learner'
     | '/flashcards/$learnerId'
     | '/parent/learners'
+    | '/session-math/$learnerId'
     | '/session/$learnerId'
     | '/parent'
     | '/parent/assessment/$learnerId'
     | '/parent/benchmark/$learnerId'
     | '/parent/interference/$learnerId'
+    | '/parent/math-setup/$learnerId'
     | '/parent/phonics/$learnerId'
     | '/parent/quick-setup/$learnerId'
     | '/parent/sessions/$learnerId'
@@ -175,11 +198,13 @@ export interface FileRouteTypes {
     | '/parent'
     | '/flashcards/$learnerId'
     | '/parent/learners'
+    | '/session-math/$learnerId'
     | '/session/$learnerId'
     | '/parent/'
     | '/parent/assessment/$learnerId'
     | '/parent/benchmark/$learnerId'
     | '/parent/interference/$learnerId'
+    | '/parent/math-setup/$learnerId'
     | '/parent/phonics/$learnerId'
     | '/parent/quick-setup/$learnerId'
     | '/parent/sessions/$learnerId'
@@ -190,6 +215,7 @@ export interface RootRouteChildren {
   LearnerRoute: typeof LearnerRoute
   ParentRoute: typeof ParentRouteWithChildren
   FlashcardsLearnerIdRoute: typeof FlashcardsLearnerIdRoute
+  SessionMathLearnerIdRoute: typeof SessionMathLearnerIdRoute
   SessionLearnerIdRoute: typeof SessionLearnerIdRoute
 }
 
@@ -230,6 +256,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SessionLearnerIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/session-math/$learnerId': {
+      id: '/session-math/$learnerId'
+      path: '/session-math/$learnerId'
+      fullPath: '/session-math/$learnerId'
+      preLoaderRoute: typeof SessionMathLearnerIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/parent/learners': {
       id: '/parent/learners'
       path: '/learners'
@@ -265,6 +298,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ParentPhonicsLearnerIdRouteImport
       parentRoute: typeof ParentRoute
     }
+    '/parent/math-setup/$learnerId': {
+      id: '/parent/math-setup/$learnerId'
+      path: '/math-setup/$learnerId'
+      fullPath: '/parent/math-setup/$learnerId'
+      preLoaderRoute: typeof ParentMathSetupLearnerIdRouteImport
+      parentRoute: typeof ParentRoute
+    }
     '/parent/interference/$learnerId': {
       id: '/parent/interference/$learnerId'
       path: '/interference/$learnerId'
@@ -295,6 +335,7 @@ interface ParentRouteChildren {
   ParentAssessmentLearnerIdRoute: typeof ParentAssessmentLearnerIdRoute
   ParentBenchmarkLearnerIdRoute: typeof ParentBenchmarkLearnerIdRoute
   ParentInterferenceLearnerIdRoute: typeof ParentInterferenceLearnerIdRoute
+  ParentMathSetupLearnerIdRoute: typeof ParentMathSetupLearnerIdRoute
   ParentPhonicsLearnerIdRoute: typeof ParentPhonicsLearnerIdRoute
   ParentQuickSetupLearnerIdRoute: typeof ParentQuickSetupLearnerIdRoute
   ParentSessionsLearnerIdRoute: typeof ParentSessionsLearnerIdRoute
@@ -306,6 +347,7 @@ const ParentRouteChildren: ParentRouteChildren = {
   ParentAssessmentLearnerIdRoute: ParentAssessmentLearnerIdRoute,
   ParentBenchmarkLearnerIdRoute: ParentBenchmarkLearnerIdRoute,
   ParentInterferenceLearnerIdRoute: ParentInterferenceLearnerIdRoute,
+  ParentMathSetupLearnerIdRoute: ParentMathSetupLearnerIdRoute,
   ParentPhonicsLearnerIdRoute: ParentPhonicsLearnerIdRoute,
   ParentQuickSetupLearnerIdRoute: ParentQuickSetupLearnerIdRoute,
   ParentSessionsLearnerIdRoute: ParentSessionsLearnerIdRoute,
@@ -319,6 +361,7 @@ const rootRouteChildren: RootRouteChildren = {
   LearnerRoute: LearnerRoute,
   ParentRoute: ParentRouteWithChildren,
   FlashcardsLearnerIdRoute: FlashcardsLearnerIdRoute,
+  SessionMathLearnerIdRoute: SessionMathLearnerIdRoute,
   SessionLearnerIdRoute: SessionLearnerIdRoute,
 }
 export const routeTree = rootRouteImport
