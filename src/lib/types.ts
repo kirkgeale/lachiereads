@@ -1,7 +1,7 @@
 export type Outcome = "got_it" | "self_corrected" | "prompted" | "missed";
 export type ItemStatus = "not_started" | "learning" | "practising" | "secure";
 export type InterferenceStatus = "still_confuses" | "resolving" | "secure";
-export type SessionItemType = "gpc" | "heart_word" | "decodable_word";
+export type SessionItemType = "gpc" | "heart_word" | "decodable_word" | "math_skill" | "math_fact";
 export type ContentType = "word_list" | "sentence" | "story" | "game_words" | "pseudowords";
 export type GpcType = "single" | "digraph" | "split_digraph" | "vowel_team";
 
