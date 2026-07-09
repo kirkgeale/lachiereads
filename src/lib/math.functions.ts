@@ -209,7 +209,7 @@ async function generateMathBundle(
     title: String(out.focus.title ?? args.target.name),
     concept: String(out.focus.concept ?? args.target.description),
     parent_intro: String(out.focus.parent_intro ?? ""),
-    visual: (["ten_frame","number_line","dots","none"].includes(out.focus.visual) ? out.focus.visual : "none") as MathCard["meta"]["visual"],
+    visual: (["ten_frame","number_line","dots","none"].includes(out.focus.visual) ? out.focus.visual : "none") as "ten_frame" | "number_line" | "dots" | "none",
   } : {
     title: args.target.name,
     concept: args.target.description,
