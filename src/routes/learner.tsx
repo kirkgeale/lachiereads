@@ -156,33 +156,49 @@ function KidHome() {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
-            <button
-              onClick={() => activeId && navigate({ to: "/session/$learnerId", params: { learnerId: activeId } })}
-              disabled={!activeId}
-              className="rounded-3xl bg-primary text-primary-foreground p-8 flex items-center justify-between hover:bg-primary/90 active:scale-[0.98] transition-all disabled:opacity-50"
-            >
-              <div className="text-left">
-                <div className="text-xl font-display">Start reading</div>
-                <div className="text-sm opacity-80">A guided session</div>
-              </div>
-              <BookOpen className="w-8 h-8" />
-            </button>
-            <button
-              onClick={() => activeId && navigate({ to: "/flashcards/$learnerId", params: { learnerId: activeId } })}
-              disabled={!activeId}
-              className="rounded-3xl bg-accent text-accent-foreground p-8 flex items-center justify-between hover:bg-accent/90 active:scale-[0.98] transition-all disabled:opacity-50"
-            >
-              <div className="text-left">
-                <div className="text-xl font-display">Flashcards</div>
-                <div className="text-sm opacity-80">
-                  {dueCount > 0 ? `${dueCount} due today` : "Quick review deck"}
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+              <button
+                onClick={() => activeId && navigate({ to: "/session/$learnerId", params: { learnerId: activeId } })}
+                disabled={!activeId}
+                className="rounded-3xl bg-primary text-primary-foreground p-8 flex items-center justify-between hover:bg-primary/90 active:scale-[0.98] transition-all disabled:opacity-50"
+              >
+                <div className="text-left">
+                  <div className="text-xl font-display">Start reading</div>
+                  <div className="text-sm opacity-80">A guided session</div>
                 </div>
-              </div>
-              <Zap className="w-8 h-8" />
-            </button>
-          </div>
+                <BookOpen className="w-8 h-8" />
+              </button>
+              <button
+                onClick={() => activeId && navigate({ to: "/flashcards/$learnerId", params: { learnerId: activeId } })}
+                disabled={!activeId}
+                className="rounded-3xl bg-accent text-accent-foreground p-8 flex items-center justify-between hover:bg-accent/90 active:scale-[0.98] transition-all disabled:opacity-50"
+              >
+                <div className="text-left">
+                  <div className="text-xl font-display">Flashcards</div>
+                  <div className="text-sm opacity-80">
+                    {dueCount > 0 ? `${dueCount} due today` : "Quick review deck"}
+                  </div>
+                </div>
+                <Zap className="w-8 h-8" />
+              </button>
+            </div>
+            <div className="mt-4">
+              <button
+                onClick={() => activeId && navigate({ to: "/session-math/$learnerId", params: { learnerId: activeId } })}
+                disabled={!activeId}
+                className="w-full rounded-3xl bg-secondary text-secondary-foreground p-8 flex items-center justify-between hover:bg-secondary/80 active:scale-[0.98] transition-all disabled:opacity-50"
+              >
+                <div className="text-left">
+                  <div className="text-xl font-display">Start maths</div>
+                  <div className="text-sm opacity-80">Calm, untimed practice</div>
+                </div>
+                <Sparkles className="w-8 h-8" />
+              </button>
+            </div>
+          </>
         )}
+
       </div>
     </div>
   );
