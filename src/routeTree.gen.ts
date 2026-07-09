@@ -14,6 +14,7 @@ import { Route as LearnerRouteImport } from './routes/learner'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ParentIndexRouteImport } from './routes/parent.index'
 import { Route as SessionLearnerIdRouteImport } from './routes/session.$learnerId'
+import { Route as SessionMathLearnerIdRouteImport } from './routes/session-math.$learnerId'
 import { Route as ParentLearnersRouteImport } from './routes/parent.learners'
 import { Route as FlashcardsLearnerIdRouteImport } from './routes/flashcards.$learnerId'
 import { Route as ParentSessionsLearnerIdRouteImport } from './routes/parent.sessions.$learnerId'
@@ -46,6 +47,11 @@ const ParentIndexRoute = ParentIndexRouteImport.update({
 const SessionLearnerIdRoute = SessionLearnerIdRouteImport.update({
   id: '/session/$learnerId',
   path: '/session/$learnerId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SessionMathLearnerIdRoute = SessionMathLearnerIdRouteImport.update({
+  id: '/session-math/$learnerId',
+  path: '/session-math/$learnerId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ParentLearnersRoute = ParentLearnersRouteImport.update({
@@ -99,6 +105,7 @@ export interface FileRoutesByFullPath {
   '/parent': typeof ParentRouteWithChildren
   '/flashcards/$learnerId': typeof FlashcardsLearnerIdRoute
   '/parent/learners': typeof ParentLearnersRoute
+  '/session-math/$learnerId': typeof SessionMathLearnerIdRoute
   '/session/$learnerId': typeof SessionLearnerIdRoute
   '/parent/': typeof ParentIndexRoute
   '/parent/assessment/$learnerId': typeof ParentAssessmentLearnerIdRoute
@@ -113,6 +120,7 @@ export interface FileRoutesByTo {
   '/learner': typeof LearnerRoute
   '/flashcards/$learnerId': typeof FlashcardsLearnerIdRoute
   '/parent/learners': typeof ParentLearnersRoute
+  '/session-math/$learnerId': typeof SessionMathLearnerIdRoute
   '/session/$learnerId': typeof SessionLearnerIdRoute
   '/parent': typeof ParentIndexRoute
   '/parent/assessment/$learnerId': typeof ParentAssessmentLearnerIdRoute
@@ -129,6 +137,7 @@ export interface FileRoutesById {
   '/parent': typeof ParentRouteWithChildren
   '/flashcards/$learnerId': typeof FlashcardsLearnerIdRoute
   '/parent/learners': typeof ParentLearnersRoute
+  '/session-math/$learnerId': typeof SessionMathLearnerIdRoute
   '/session/$learnerId': typeof SessionLearnerIdRoute
   '/parent/': typeof ParentIndexRoute
   '/parent/assessment/$learnerId': typeof ParentAssessmentLearnerIdRoute
@@ -146,6 +155,7 @@ export interface FileRouteTypes {
     | '/parent'
     | '/flashcards/$learnerId'
     | '/parent/learners'
+    | '/session-math/$learnerId'
     | '/session/$learnerId'
     | '/parent/'
     | '/parent/assessment/$learnerId'
@@ -160,6 +170,7 @@ export interface FileRouteTypes {
     | '/learner'
     | '/flashcards/$learnerId'
     | '/parent/learners'
+    | '/session-math/$learnerId'
     | '/session/$learnerId'
     | '/parent'
     | '/parent/assessment/$learnerId'
@@ -175,6 +186,7 @@ export interface FileRouteTypes {
     | '/parent'
     | '/flashcards/$learnerId'
     | '/parent/learners'
+    | '/session-math/$learnerId'
     | '/session/$learnerId'
     | '/parent/'
     | '/parent/assessment/$learnerId'
@@ -190,6 +202,7 @@ export interface RootRouteChildren {
   LearnerRoute: typeof LearnerRoute
   ParentRoute: typeof ParentRouteWithChildren
   FlashcardsLearnerIdRoute: typeof FlashcardsLearnerIdRoute
+  SessionMathLearnerIdRoute: typeof SessionMathLearnerIdRoute
   SessionLearnerIdRoute: typeof SessionLearnerIdRoute
 }
 
@@ -228,6 +241,13 @@ declare module '@tanstack/react-router' {
       path: '/session/$learnerId'
       fullPath: '/session/$learnerId'
       preLoaderRoute: typeof SessionLearnerIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/session-math/$learnerId': {
+      id: '/session-math/$learnerId'
+      path: '/session-math/$learnerId'
+      fullPath: '/session-math/$learnerId'
+      preLoaderRoute: typeof SessionMathLearnerIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/parent/learners': {
@@ -319,6 +339,7 @@ const rootRouteChildren: RootRouteChildren = {
   LearnerRoute: LearnerRoute,
   ParentRoute: ParentRouteWithChildren,
   FlashcardsLearnerIdRoute: FlashcardsLearnerIdRoute,
+  SessionMathLearnerIdRoute: SessionMathLearnerIdRoute,
   SessionLearnerIdRoute: SessionLearnerIdRoute,
 }
 export const routeTree = rootRouteImport
