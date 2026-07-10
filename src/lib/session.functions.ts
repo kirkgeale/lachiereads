@@ -134,8 +134,9 @@ export const startSession = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<SessionPlan> => {
     const { supabase } = context;
     const t = today();
-    const sessionSeq = await computeSessionSeq(supabase, data.learner_id);
-    const freshnessSalt = `${t}#${sessionSeq}`;
+    const genSeq = await nextContentGenSeq(supabase, data.learner_id);
+    const freshnessSalt = `${t}#gen${genSeq}#${Math.random().toString(36).slice(2, 8)}`;
+
 
     // --- Warm-up: 3-5 due items (mix gpc + heart word) ---
     const { data: dueGpcs } = await supabase
