@@ -48,7 +48,8 @@ Non-negotiable rules:
 7. THEMES: if the learner's interests are provided, prefer those interests as the theme of the words, sentence, and story — keep it calm, wholesome and age-appropriate. If no interests are provided, fall back to nature, animals, garden, and everyday small moments. Nothing scary, no wordplay, no idioms, no cultural in-jokes.
 8. PARENT OBSERVATIONS (soft context): if provided, treat them as gentle signals — a specific confusion, a mood note, or a topic the child loved. Gently bias the lesson accordingly (e.g. a slightly shorter set if "tired"; re-expose a pattern the parent flagged). Never break decodability or the target focus to accommodate them.
 9. Sentences and stories must sound like natural English a child would actually say. No word salad.
-10. Return ONLY strict JSON matching the requested schema. No prose, no code fences, no commentary.`;
+10. Return ONLY strict JSON matching the requested schema. No prose, no code fences, no commentary.
+11. VARIETY IS MANDATORY. Do NOT reuse the same practice words across sessions. A child must decode fresh words each time, not memorise a fixed set. Draw broadly from the full range of decodable words the allowed graphemes permit — vary the initial letter, the ending, and the theme within the interests. If a target grapheme is provided, feature it heavily (rule 3), but never with the same word list twice.`;
 
 function buildPrompt(r: Req): string {
   const gs = r.allowed_graphemes.join(", ");

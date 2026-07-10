@@ -80,17 +80,18 @@ async function updateStreakAndStars(
 }
 
 
-async function computeSessionSeq(supabase: any, learner_id: string): Promise<number> {
-  // How many sessions has this learner started today? Adds +1 as the seq for the new one.
-  const startOfDay = new Date();
-  startOfDay.setUTCHours(0, 0, 0, 0);
-  const { count } = await supabase
-    .from("sessions")
-    .select("id", { count: "exact", head: true })
-    .eq("learner_id", learner_id)
-    .gte("created_at", startOfDay.toISOString());
-  return (count ?? 0) + 1;
+// Atomic per-learner generation counter. Guarantees a unique salt per
+// generation regardless of cadence, so consecutive lessons/flashcards get
+// distinct content even on the same day.
+async function nextContentGenSeq(supabase: any, learner_id: string): Promise<number> {
+  const { data, error } = await supabase.rpc("bump_content_gen_seq", { p_learner_id: learner_id });
+  if (error || data == null) {
+    console.warn("[nextContentGenSeq] rpc failed, falling back to random", error);
+    return Math.floor(Math.random() * 1e9);
+  }
+  return typeof data === "number" ? data : Number(data);
 }
+
 
 function stageIntro(stage: SessionStage, sound?: string | null): StageIntro | undefined {
   switch (stage) {
@@ -133,8 +134,9 @@ export const startSession = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<SessionPlan> => {
     const { supabase } = context;
     const t = today();
-    const sessionSeq = await computeSessionSeq(supabase, data.learner_id);
-    const freshnessSalt = `${t}#${sessionSeq}`;
+    const genSeq = await nextContentGenSeq(supabase, data.learner_id);
+    const freshnessSalt = `${t}#gen${genSeq}#${Math.random().toString(36).slice(2, 8)}`;
+
 
     // --- Warm-up: 3-5 due items (mix gpc + heart word) ---
     const { data: dueGpcs } = await supabase
@@ -657,8 +659,9 @@ export const buildFlashcardDeck = createServerFn({ method: "POST" })
     const { supabase } = context;
     const size = data.size ?? 12;
     const t = today();
-    const sessionSeq = await computeSessionSeq(supabase, data.learner_id);
-    const freshnessSalt = `${t}#fc#${sessionSeq}`;
+    const genSeq = await nextContentGenSeq(supabase, data.learner_id);
+    const freshnessSalt = `${t}#fc#gen${genSeq}#${Math.random().toString(36).slice(2, 8)}`;
+
 
     // Target counts within the deck (~5 GPCs, ~3 heart words, ~4 decodable words)
     const targetGpcCount = Math.max(1, Math.round(size * 0.42));

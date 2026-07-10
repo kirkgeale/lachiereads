@@ -143,6 +143,7 @@ export type Database = {
       gpcs: {
         Row: {
           assessment_word: string | null
+          assessment_word_pool: string[]
           example_word: string
           grapheme: string
           id: string
@@ -153,6 +154,7 @@ export type Database = {
         }
         Insert: {
           assessment_word?: string | null
+          assessment_word_pool?: string[]
           example_word: string
           grapheme: string
           id?: string
@@ -163,6 +165,7 @@ export type Database = {
         }
         Update: {
           assessment_word?: string | null
+          assessment_word_pool?: string[]
           example_word?: string
           grapheme?: string
           id?: string
@@ -413,6 +416,7 @@ export type Database = {
       learners: {
         Row: {
           birthdate: string | null
+          content_gen_seq: number
           created_at: string
           garden_theme: string
           id: string
@@ -424,6 +428,7 @@ export type Database = {
         }
         Insert: {
           birthdate?: string | null
+          content_gen_seq?: number
           created_at?: string
           garden_theme?: string
           id?: string
@@ -435,6 +440,7 @@ export type Database = {
         }
         Update: {
           birthdate?: string | null
+          content_gen_seq?: number
           created_at?: string
           garden_theme?: string
           id?: string
@@ -652,7 +658,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      bump_content_gen_seq: { Args: { p_learner_id: string }; Returns: number }
     }
     Enums: {
       app_role: "parent"
