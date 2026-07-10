@@ -239,115 +239,168 @@ function pseudowordFor(target: string, difficulty: number): PseudoEntry | null {
   return banded;
 }
 
-export function buildAssessmentProbes(learner: AssessmentLearnerContext): AssessmentProbe[] {
-  const catalog = uniqueGraphemes(learner.all_graphemes ?? []);
+// mulberry32 seeded PRNG — deterministic given the same seed.
+function mulberry32(seed: number) {
+  let s = seed >>> 0;
+  return () => {
+    s = (s + 0x6D2B79F5) >>> 0;
+    let t = s;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function seededShuffle<T>(arr: T[], rand: () => number): T[] {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    [a[i], a[j]] = [a[j]!, a[i]!];
+  }
+  return a;
+}
+function pickFromPool(g: AssessmentGraphemeEntry, rand: () => number): string {
+  const pool = (g.assessment_word_pool ?? []).filter(Boolean);
+  const fallback = [g.assessment_word, g.example_word].filter(Boolean) as string[];
+  const merged = Array.from(new Set([...pool, ...fallback].map((w) => w.trim()).filter(Boolean)));
+  if (!merged.length) return "";
+  return merged[Math.floor(rand() * merged.length)]!;
+}
+
+// Adaptive + seeded assessment builder. Emphasises the learner's current
+// frontier (learning/practising) while sampling a few secure items for
+// retention and a few not_started items just past the frontier to find the
+// ceiling. Same seed -> same probes; different seed -> different probes.
+export function buildAssessmentProbes(
+  learner: AssessmentLearnerContext,
+  opts: { seed?: number } = {},
+): AssessmentProbe[] {
+  const seed = opts.seed ?? Date.now();
+  const rand = mulberry32(seed);
+
+  const catalog = uniqueGraphemes(learner.all_graphemes ?? []) as AssessmentGraphemeEntry[];
   const heartWordSet = new Set((learner.all_heart_words ?? []).map((w) => w.toLowerCase()));
   const exampleWordSet = new Set(catalog.map((g) => (g.example_word ?? "").toLowerCase()).filter(Boolean));
+
+  // Frontier detection: highest phase where the learner has any non-secure
+  // active status is the working phase; adjacent phases are the ceiling.
+  const activePhases = catalog.filter((g) => g.status === "learning" || g.status === "practising").map((g) => g.phase);
+  const frontierPhase = activePhases.length
+    ? Math.max(...activePhases)
+    : Math.min(...(catalog.filter((g) => g.status === "not_started").map((g) => g.phase).length
+        ? catalog.filter((g) => g.status === "not_started").map((g) => g.phase)
+        : [1]));
+
+  const banded = {
+    secure_below: catalog.filter((g) => g.status === "secure" && g.phase <= frontierPhase),
+    frontier: catalog.filter((g) => (g.status === "learning" || g.status === "practising") && Math.abs(g.phase - frontierPhase) <= 1),
+    just_beyond: catalog.filter((g) => g.status === "not_started" && g.phase <= frontierPhase + 1),
+    far_beyond: catalog.filter((g) => g.status === "not_started" && g.phase > frontierPhase + 1),
+    far_below_secure: catalog.filter((g) => g.status === "secure" && g.phase < frontierPhase - 1),
+  };
 
   let counter = 0;
   const make = (strand: AssessmentStrand, probe: Omit<AssessmentProbe, "id" | "strand">): AssessmentProbe => ({
     ...probe, strand, id: `p${++counter}`,
   });
 
-  // Strand 1: letter-sounds — every single-letter grapheme in phases 1-2.
-  const letterSounds: AssessmentProbe[] = [];
-  const seenLetters = new Set<string>();
-  for (const g of catalog) {
-    if (g.phase > 2) continue;
-    if (!/^[a-z]$/i.test(g.grapheme)) continue;
-    if (seenLetters.has(g.grapheme)) continue;
-    seenLetters.add(g.grapheme);
-    letterSounds.push(make("letter_sounds", {
-      kind: "grapheme_sound",
-      prompt: g.grapheme,
-      target_grapheme: g.grapheme,
-      difficulty: 1,
-      notes: `listen for ${g.sound_label}`,
-    }));
-  }
+  const strandOf = (g: AssessmentGraphemeEntry): AssessmentStrand => {
+    if (g.phase <= 2 && /^[a-z]$/i.test(g.grapheme)) return "letter_sounds";
+    if (g.phase <= 2) return "simple_words";
+    return "letter_team_words";
+  };
+  const kindOf = (g: AssessmentGraphemeEntry): string => {
+    if (g.phase <= 2 && /^[a-z]$/i.test(g.grapheme)) return "grapheme_sound";
+    if (g.grapheme.includes("_")) return "vcv_word";
+    if (g.grapheme.length > 1) return "digraph_word";
+    return "cvc_word";
+  };
+  const difficultyOf = (g: AssessmentGraphemeEntry): number =>
+    Math.max(1, Math.min(5, g.phase >= 5 ? 5 : g.phase >= 3 ? 4 : g.phase === 2 ? 2 : 1));
 
-  // Strand 2: simple decodable words — phase 1-2 items, using assessment_word
-  // (falls back to example_word only if we absolutely have to).
-  const simpleWords: AssessmentProbe[] = [];
-  const seenSimple = new Set<string>();
-  for (const g of catalog) {
-    if (g.phase > 2) continue;
-    const word = (g.assessment_word || g.example_word || "").trim();
-    if (!word || seenSimple.has(word.toLowerCase())) continue;
-    seenSimple.add(word.toLowerCase());
-    simpleWords.push(make("simple_words", {
-      kind: "cvc_word",
-      prompt: word,
-      target_grapheme: g.grapheme,
-      difficulty: 2,
-      notes: `listen for ${g.sound_label} in '${word}'`,
-    }));
-  }
-
-  // Strand 3: letter-team words — phase 3+. Spread across difficulty
-  // bands (3, 4, 5) rather than sweeping every single grapheme.
-  const laterCatalog = catalog.filter((g) => g.phase >= 3);
-  const byBand: Record<number, typeof laterCatalog> = { 3: [], 4: [], 5: [] };
-  for (const g of laterCatalog) {
-    const band = Math.min(5, Math.max(3, g.phase >= 7 ? 4 : g.phase >= 5 ? 4 : 3));
-    (byBand[band] ??= []).push(g);
-  }
-  // add tricky high-phase items to band 5
-  for (const g of laterCatalog) {
-    if (g.phase >= 8) byBand[5].push(g);
-  }
-  const letterTeamWords: AssessmentProbe[] = [];
-  const seenTeam = new Set<string>();
-  const takeFromBand = (band: number, n: number) => {
-    for (const g of (byBand[band] ?? [])) {
-      if (letterTeamWords.length >= 10) break;
-      if (seenTeam.has(g.grapheme)) continue;
-      const word = (g.assessment_word || g.example_word || "").trim();
-      if (!word) continue;
-      seenTeam.add(g.grapheme);
-      const kind = g.grapheme.includes("_") ? "vcv_word" : g.grapheme.length > 1 ? "digraph_word" : "grapheme_sound";
-      letterTeamWords.push(make("letter_team_words", {
-        kind,
-        prompt: word,
-        target_grapheme: g.grapheme,
-        difficulty: band,
-        notes: `listen for ${g.sound_label} in '${word}'`,
-      }));
-      if (--n <= 0) return;
+  const usedGraphemes = new Set<string>();
+  const probes: AssessmentProbe[] = [];
+  const takeFrom = (band: AssessmentGraphemeEntry[], n: number) => {
+    if (n <= 0) return;
+    for (const g of seededShuffle(band, rand)) {
+      if (n <= 0) break;
+      if (usedGraphemes.has(g.grapheme)) continue;
+      usedGraphemes.add(g.grapheme);
+      const strand = strandOf(g);
+      if (strand === "letter_sounds") {
+        probes.push(make("letter_sounds", {
+          kind: "grapheme_sound",
+          prompt: g.grapheme,
+          target_grapheme: g.grapheme,
+          difficulty: 1,
+          notes: `listen for ${g.sound_label}`,
+        }));
+      } else {
+        const word = pickFromPool(g, rand);
+        if (!word) continue;
+        probes.push(make(strand, {
+          kind: kindOf(g),
+          prompt: word,
+          target_grapheme: g.grapheme,
+          difficulty: difficultyOf(g),
+          notes: `listen for ${g.sound_label} in '${word}'`,
+        }));
+      }
+      n--;
     }
   };
-  takeFromBand(3, 4);
-  takeFromBand(4, 4);
-  takeFromBand(5, 3);
 
-  // Strand 4: heart words (sight-word recognition sample).
-  const heartWords: AssessmentProbe[] = [];
-  for (const word of (learner.all_heart_words ?? []).slice(0, 5)) {
-    heartWords.push(make("heart_words", {
-      kind: "heart_word",
-      prompt: word,
-      target_heart_word: word,
-      difficulty: 2,
-      notes: "word recognition",
-    }));
+  // Weighted sampling: heaviest at frontier, some secure confirmation,
+  // some just-beyond probes to find the ceiling, minimal far-below/far-beyond.
+  takeFrom(banded.frontier, 14);
+  takeFrom(banded.just_beyond, 8);
+  takeFrom(banded.secure_below, 3);
+  takeFrom(banded.far_beyond, 3);
+  takeFrom(banded.far_below_secure, 1);
+  // Bootstrap safety: if learner is brand-new (nothing active/secure), sweep
+  // phases 1-2 so the first-ever assessment still has substance.
+  if (probes.length < 8) {
+    takeFrom(catalog.filter((g) => g.phase <= 2), 16 - probes.length);
   }
 
-  // Strand 5: pseudowords — curated bank only, filtered by learner catalog.
-  const pseudowords: AssessmentProbe[] = [];
-  const catalogGraphemes = new Set(catalog.map((g) => g.grapheme));
-  const wantedTargets = ["a", "i", "o", "u", "e", "sh", "th", "ch", "ck", "ng"];
+  // --- Heart words: frontier-weighted with variety ---
+  const hwEntries = learner.heart_word_entries ?? (learner.all_heart_words ?? []).map((w) => ({ word: w, status: "not_started" as MasteryStatus }));
+  const hwFrontier = hwEntries.filter((h) => h.status === "learning" || h.status === "practising");
+  const hwSecure = hwEntries.filter((h) => h.status === "secure");
+  const hwNotStarted = hwEntries.filter((h) => h.status === "not_started");
+  const heartWordProbes: AssessmentProbe[] = [];
+  const pickHw = (pool: AssessmentHeartWordEntry[], n: number) => {
+    for (const h of seededShuffle(pool, rand)) {
+      if (n <= 0) break;
+      if (heartWordProbes.find((p) => p.target_heart_word === h.word)) continue;
+      heartWordProbes.push(make("heart_words", {
+        kind: "heart_word",
+        prompt: h.word,
+        target_heart_word: h.word,
+        difficulty: 2,
+        notes: "word recognition",
+      }));
+      n--;
+    }
+  };
+  pickHw(hwFrontier, 3);
+  pickHw(hwNotStarted, 2);
+  pickHw(hwSecure, 1);
+
+  // --- Pseudowords: rotate through bank via seed for targets the learner reached ---
+  const pseudoProbes: AssessmentProbe[] = [];
+  const catalogGraphemes = new Set(catalog.filter((g) => g.status !== "not_started").map((g) => g.grapheme));
+  const pseudoTargets = seededShuffle(["a", "i", "o", "u", "e", "sh", "th", "ch", "ck", "ng"].filter((t) => catalogGraphemes.has(t)), rand);
   const seenPseudo = new Set<string>();
-  for (const target of wantedTargets) {
-    if (pseudowords.length >= 5) break;
-    if (!catalogGraphemes.has(target)) continue;
+  for (const target of pseudoTargets) {
+    if (pseudoProbes.length >= 5) break;
     const gRow = catalog.find((g) => g.grapheme === target);
-    const pw = pseudowordFor(target, 3);
-    if (!pw) continue;
-    if (heartWordSet.has(pw.word.toLowerCase())) continue;
-    if (exampleWordSet.has(pw.word.toLowerCase())) continue;
-    if (seenPseudo.has(pw.word.toLowerCase())) continue;
+    const candidates = PSEUDOWORD_BANK
+      .filter((p) => p.target_grapheme === target && !REAL_WORD_BLOCKLIST.has(p.word.toLowerCase()) && /^[a-z_]+$/.test(p.word))
+      .filter((p) => !heartWordSet.has(p.word.toLowerCase()) && !exampleWordSet.has(p.word.toLowerCase()) && !seenPseudo.has(p.word.toLowerCase()));
+    if (!candidates.length) continue;
+    const pw = seededShuffle(candidates, rand)[0]!;
     seenPseudo.add(pw.word.toLowerCase());
-    pseudowords.push(make("pseudowords", {
+    pseudoProbes.push(make("pseudowords", {
       kind: "pseudoword",
       prompt: pw.word,
       target_grapheme: target,
@@ -356,45 +409,33 @@ export function buildAssessmentProbes(learner: AssessmentLearnerContext): Assess
     }));
   }
 
-  // Strand 6: two decodable sentences from a template pool. Every fixed
-  // word is either a heart word from the seed list ("I", "the", "a", "on",
-  // "is") or decodable from phase 1-2 letters. Slot in short taught words.
-  const phaseOneTwoWords = catalog
-    .filter((g) => g.phase <= 2)
-    .map((g) => (g.assessment_word || g.example_word || "").trim())
-    .filter(Boolean);
-  const pickShort = (used: Set<string>): string => {
-    for (const w of phaseOneTwoWords) {
-      if (w.length <= 3 && !used.has(w.toLowerCase())) { used.add(w.toLowerCase()); return w; }
-    }
-    for (const w of phaseOneTwoWords) {
-      if (!used.has(w.toLowerCase())) { used.add(w.toLowerCase()); return w; }
-    }
-    return "cat";
-  };
-  const used = new Set<string>();
-  const w1 = pickShort(used);
-  const w2 = pickShort(used);
-  const sentences: AssessmentProbe[] = [
-    make("sentences", { kind: "sentence", prompt: `I sat on a ${w1}.`, difficulty: 3, notes: "listen for smooth word-by-word reading" }),
-    make("sentences", { kind: "sentence", prompt: `The ${w2} is on a mat.`, difficulty: 4, notes: "listen for independence and fluency" }),
+  // --- Sentences: pull from active taught pool with variety ---
+  const shortActiveWords = catalog
+    .filter((g) => g.phase <= 2 && g.status !== "not_started")
+    .map((g) => pickFromPool(g, rand))
+    .filter((w) => w && w.length <= 4);
+  const shuffledWords = seededShuffle(shortActiveWords.length ? shortActiveWords : ["cat", "mat", "pin"], rand);
+  const w1 = shuffledWords[0] ?? "cat";
+  const w2 = shuffledWords[1] ?? shuffledWords[0] ?? "mat";
+  const sentenceTemplates = [
+    `I sat on a ${w1}.`,
+    `The ${w1} is on a mat.`,
+    `A ${w1} and a ${w2}.`,
+    `I can see the ${w1}.`,
+    `The ${w2} is red.`,
   ];
+  const chosenSentences = seededShuffle(sentenceTemplates, rand).slice(0, 2);
+  const sentenceProbes: AssessmentProbe[] = chosenSentences.map((s, i) =>
+    make("sentences", { kind: "sentence", prompt: s, difficulty: 3 + i, notes: i === 0 ? "listen for smooth word-by-word reading" : "listen for independence and fluency" }),
+  );
 
-  // Assemble easiest -> hardest and hard-cap at 40 by trimming letter-team
-  // words if needed (letter-sound coverage stays intact).
+  // Assemble, ordered easiest -> hardest, capped at 40.
   const HARD_CAP = 40;
-  const fixedCount = letterSounds.length + simpleWords.length + heartWords.length + pseudowords.length + sentences.length;
-  const teamBudget = Math.max(0, HARD_CAP - fixedCount);
-  const trimmedTeam = letterTeamWords.slice(0, teamBudget);
-  return [
-    ...letterSounds,
-    ...simpleWords,
-    ...trimmedTeam,
-    ...heartWords,
-    ...pseudowords,
-    ...sentences,
-  ].slice(0, HARD_CAP);
+  const graphemeProbes = probes.slice().sort((a, b) => a.difficulty - b.difficulty);
+  const combined = [...graphemeProbes, ...heartWordProbes, ...pseudoProbes, ...sentenceProbes];
+  return combined.slice(0, HARD_CAP);
 }
+
 
 function cleanString(value: unknown) {
   return typeof value === "string" ? value.trim() : "";
