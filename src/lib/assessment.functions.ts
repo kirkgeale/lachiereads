@@ -19,7 +19,7 @@ export const startAssessment = createServerFn({ method: "POST" })
   .handler(async ({ data, context }): Promise<{ assessment_id: string; probes: Probe[] }> => {
     const { supabase } = context;
     const { learner_ctx } = await loadAssessmentContext(supabase, data.learner_id);
-    const probes = buildAssessmentProbes(learner_ctx);
+    const probes = buildAssessmentProbes(learner_ctx, { seed: Date.now() });
     if (!probes.length) throw new Error("Assessment planner returned no probes.");
 
     const { data: row, error: insErr } = await supabase
