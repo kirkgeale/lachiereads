@@ -659,8 +659,9 @@ export const buildFlashcardDeck = createServerFn({ method: "POST" })
     const { supabase } = context;
     const size = data.size ?? 12;
     const t = today();
-    const sessionSeq = await computeSessionSeq(supabase, data.learner_id);
-    const freshnessSalt = `${t}#fc#${sessionSeq}`;
+    const genSeq = await nextContentGenSeq(supabase, data.learner_id);
+    const freshnessSalt = `${t}#fc#gen${genSeq}#${Math.random().toString(36).slice(2, 8)}`;
+
 
     // Target counts within the deck (~5 GPCs, ~3 heart words, ~4 decodable words)
     const targetGpcCount = Math.max(1, Math.round(size * 0.42));
