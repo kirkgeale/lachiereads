@@ -23,6 +23,24 @@ export interface AssessmentProbeResult extends AssessmentProbe {
   outcome: AssessmentOutcome;
 }
 
+export type MasteryStatus = "not_started" | "learning" | "practising" | "secure";
+
+export interface AssessmentGraphemeEntry {
+  grapheme: string;
+  sound_label: string;
+  phase: number;
+  example_word: string;
+  assessment_word?: string | null;
+  assessment_word_pool?: string[];
+  order_index?: number;
+  status: MasteryStatus;
+}
+
+export interface AssessmentHeartWordEntry {
+  word: string;
+  status: MasteryStatus;
+}
+
 export interface AssessmentLearnerContext {
   name: string;
   age_years: number | null;
@@ -31,9 +49,11 @@ export interface AssessmentLearnerContext {
   secure_graphemes: string[];
   known_heart_words: string[];
   interference_pairs: { grapheme: string; swedish_value: string; english_value: string }[];
-  all_graphemes: { grapheme: string; sound_label: string; phase: number; example_word: string; assessment_word?: string | null; order_index?: number }[];
+  all_graphemes: AssessmentGraphemeEntry[];
   all_heart_words: string[];
+  heart_word_entries: AssessmentHeartWordEntry[];
 }
+
 
 export interface AssessmentReportJson {
   estimated_level: string;
