@@ -102,8 +102,12 @@ export async function loadAssessmentContext(supabase: any, learner_id: string) {
 
   const gpcs = gpcsRes.data ?? [];
   const heartWords = heartWordsRes.data ?? [];
-  const statusById = new Map<string, string>((gpcStatusRes.data ?? []).map((r: any) => [r.gpc_id, r.status]));
-  const hwStatusById = new Map<string, string>((hwStatusRes.data ?? []).map((r: any) => [r.heart_word_id, r.status]));
+  const statusById = new Map<string, MasteryStatus>(
+    (gpcStatusRes.data ?? []).map((r: any) => [r.gpc_id, (r.status ?? "not_started") as MasteryStatus]),
+  );
+  const hwStatusById = new Map<string, MasteryStatus>(
+    (hwStatusRes.data ?? []).map((r: any) => [r.heart_word_id, (r.status ?? "not_started") as MasteryStatus]),
+  );
   const known_graphemes = gpcs.filter((g: any) => (statusById.get(g.id) ?? "not_started") !== "not_started").map((g: any) => g.grapheme);
   const secure_graphemes = gpcs.filter((g: any) => statusById.get(g.id) === "secure").map((g: any) => g.grapheme);
   const known_heart_words = heartWords
@@ -125,14 +129,21 @@ export async function loadAssessmentContext(supabase: any, learner_id: string) {
         phase: g.phase,
         example_word: g.example_word,
         assessment_word: g.assessment_word ?? null,
+        assessment_word_pool: Array.isArray(g.assessment_word_pool) ? g.assessment_word_pool.filter((w: any) => typeof w === "string" && w.trim()) : [],
         order_index: g.order_index,
+        status: (statusById.get(g.id) ?? "not_started") as MasteryStatus,
       })),
       all_heart_words: heartWords.map((h: any) => h.word),
+      heart_word_entries: heartWords.map((h: any) => ({
+        word: h.word,
+        status: (hwStatusById.get(h.id) ?? "not_started") as MasteryStatus,
+      })),
     } satisfies AssessmentLearnerContext,
     gpcs,
     heartWords,
   };
 }
+
 
 export async function loadPreviousAssessment(
   supabase: any,
