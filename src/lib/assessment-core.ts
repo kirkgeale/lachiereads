@@ -86,7 +86,7 @@ export function ageYears(birthdate: string | null): number | null {
 export async function loadAssessmentContext(supabase: any, learner_id: string) {
   const [learnerRes, gpcsRes, gpcStatusRes, heartWordsRes, hwStatusRes, interferenceRes] = await Promise.all([
     supabase.from("learners").select("name, birthdate, garden_theme").eq("id", learner_id).single(),
-    supabase.from("gpcs").select("id, grapheme, sound_label, phase, example_word, assessment_word, order_index").order("order_index"),
+    supabase.from("gpcs").select("id, grapheme, sound_label, phase, example_word, assessment_word, assessment_word_pool, order_index").order("order_index"),
     supabase.from("learner_gpc_status").select("gpc_id, status").eq("learner_id", learner_id),
     supabase.from("heart_words").select("id, word, order_index").order("order_index"),
     supabase.from("learner_heart_word_status").select("heart_word_id, status").eq("learner_id", learner_id),
