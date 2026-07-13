@@ -30,6 +30,7 @@ interface GenArgs {
   variant?: string;
   interests?: string | null;
   parentObservations?: string[];
+  count?: number | null;
 }
 
 function makeCacheKey(a: GenArgs): string {
@@ -43,8 +44,9 @@ function makeCacheKey(a: GenArgs): string {
   const v = a.variant ?? "";
   const i = (a.interests ?? "").trim().toLowerCase();
   const p = (a.parentObservations ?? []).slice(0, 3).join("|");
+  const n = a.count ?? "";
   // Prefix learner_id so two learners never share a cache row.
-  return `L=${a.learner_id}::${a.type}::${gs}::${hs}::t=${t}::m=${m}::s=${s}::c=${c}::f=${f}::v=${v}::i=${i}::p=${p}`;
+  return `L=${a.learner_id}::${a.type}::${gs}::${hs}::t=${t}::m=${m}::s=${s}::c=${c}::f=${f}::v=${v}::i=${i}::p=${p}::n=${n}`;
 }
 
 function fallbackWordList(allowedGraphemes: string[], known: string[]): string[] {
@@ -94,6 +96,7 @@ export async function generateContentInternal(a: GenArgs): Promise<any> {
         challenges: a.challenges ?? [],
         interests: a.interests ?? null,
         parent_observations: a.parentObservations ?? [],
+        count: a.count ?? null,
       },
     });
     if (error) throw error;
@@ -136,8 +139,23 @@ export async function generateContentInternal(a: GenArgs): Promise<any> {
     content.blend_words = filterList(content.blend_words);
     content.practice_words = filterList(content.practice_words);
     content.flashcard_decodable = filterList(content.flashcard_decodable);
+    content.guided_words = filterList(content.guided_words);
     if (Array.isArray(content.focus?.examples)) {
       content.focus.examples = filterList(content.focus.examples);
+    }
+    // challenge_item / recap_item: drop if undecodable
+    const oneWordOk = (w: any) =>
+      typeof w === "string" && w.trim() &&
+      validateContent(extractWords(w), a.allowedGraphemes, a.knownHeartWords).ok;
+    if (content.challenge_item && typeof content.challenge_item === "object") {
+      if (!oneWordOk(content.challenge_item.word)) {
+        console.warn("[lesson_bundle] dropping challenge_item");
+        content.challenge_item = null;
+      }
+    }
+    if (!oneWordOk(content.recap_item)) {
+      console.warn("[lesson_bundle] dropping recap_item");
+      content.recap_item = null;
     }
 
     const sentenceOk = (s: any) => typeof s === "string" && s.trim() &&

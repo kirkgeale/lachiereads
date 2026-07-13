@@ -106,10 +106,20 @@ function stageIntro(stage: SessionStage, sound?: string | null): StageIntro | un
           ? `Model the sound "${sound}" once, mouth clear. Then invite them to try.`
           : "Model the sound once, mouth clear. Then invite them to try.",
       };
+    case "guided":
+      return {
+        title: "Try it together",
+        guidance: "Support them fully — say it with them first, then let them lead the second time.",
+      };
     case "blend":
       return { title: "Blend ladder", guidance: "Sound out each letter, then blend. Slow → smooth." };
     case "practice":
       return { title: "Word reading", guidance: "Let them try first. Only prompt if truly stuck." };
+    case "challenge":
+      return {
+        title: "Your turn — a trickier one",
+        guidance: "Let them try WITHOUT help first. This one's a bit harder on purpose — that's OK, it's meant to stretch a little.",
+      };
     case "sentence":
       return { title: "Sentence", guidance: "Point under each word. Read together if needed, then them alone." };
     case "story":
@@ -121,6 +131,11 @@ function stageIntro(stage: SessionStage, sound?: string | null): StageIntro | un
       };
     case "game":
       return { title: "Quick game", guidance: "Fast recall — no pressure, just play." };
+    case "recap":
+      return {
+        title: "One more time",
+        guidance: "No hints this time — see if it's stuck. Whatever happens, this just tells us what to practise next.",
+      };
     case "wrapup":
       return { title: "Wrap-up", guidance: "Celebrate one specific thing they did well today." };
   }
@@ -393,9 +408,19 @@ export const startSession = createServerFn({ method: "POST" })
       });
     }
 
+    // --- Guided: 2-3 EASIEST target-featuring words, fully supported ---
+    const guidedCards: SessionCard[] = [];
+    if (Array.isArray(bundle?.guided_words)) {
+      for (const w of bundle.guided_words.slice(0, 3)) {
+        if (typeof w === "string" && w.trim()) {
+          guidedCards.push({ key: `gd-${w}`, item_type: "decodable_word", item_ref: w, display: w, stage: "guided" });
+        }
+      }
+    }
+
     const blendCards: SessionCard[] = [];
     if (currentPhase >= 2 && Array.isArray(bundle?.blend_words)) {
-      for (const w of bundle.blend_words.slice(0, 5)) {
+      for (const w of bundle.blend_words.slice(0, 6)) {
         blendCards.push({ key: `b-${w}`, item_type: "decodable_word", item_ref: w, display: w, stage: "blend" });
       }
     }
@@ -403,9 +428,23 @@ export const startSession = createServerFn({ method: "POST" })
     // --- Word practice ---
     const practiceCards: SessionCard[] = [];
     if (Array.isArray(bundle?.practice_words)) {
-      for (const w of bundle.practice_words.slice(0, 8)) {
+      for (const w of bundle.practice_words.slice(0, 10)) {
         practiceCards.push({ key: `p-w-${w}`, item_type: "decodable_word", item_ref: w, display: w, stage: "practice" });
       }
+    }
+
+    // --- Challenge: ONE harder, less-familiar target-featuring word ---
+    const challengeCards: SessionCard[] = [];
+    const ch = bundle?.challenge_item;
+    if (ch && typeof ch === "object" && typeof ch.word === "string" && ch.word.trim()) {
+      challengeCards.push({
+        key: `ch-${ch.word}`,
+        item_type: "decodable_word",
+        item_ref: ch.word,
+        display: ch.word,
+        stage: "challenge",
+        meta: { kind: "challenge", note: typeof ch.note === "string" ? ch.note : "" },
+      });
     }
 
     // --- Sentence (phase >= 3) ---
@@ -460,6 +499,20 @@ export const startSession = createServerFn({ method: "POST" })
       meta: { kind: "quick_game" },
     }));
 
+    // --- Recap: single delayed no-support check of the target ---
+    const recapCards: SessionCard[] = [];
+    const recapWord = typeof bundle?.recap_item === "string" ? bundle.recap_item.trim() : "";
+    if (recapWord) {
+      recapCards.push({
+        key: `rc-${recapWord}`,
+        item_type: "decodable_word",
+        item_ref: recapWord,
+        display: recapWord,
+        stage: "recap",
+        meta: { kind: "recap" },
+      });
+    }
+
     // --- Wrap-up ---
     const wrapup: SessionCard[] = [
       { key: "wrap", item_type: "gpc", item_ref: "", display: "", stage: "wrapup" },
@@ -470,12 +523,15 @@ export const startSession = createServerFn({ method: "POST" })
       ...introCards,
       ...warmup,
       ...targetCards,
+      ...guidedCards,
       ...blendCards,
       ...practiceCards,
+      ...challengeCards,
       ...sentenceCards,
       ...storyCards,
       ...interferenceCards,
       ...gameCards,
+      ...recapCards,
       ...wrapup,
     ];
     let prevStage: SessionStage | null = null;
@@ -653,11 +709,11 @@ export const saveSessionEvents = createServerFn({ method: "POST" })
 export const buildFlashcardDeck = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { learner_id: string; size?: number }) =>
-    z.object({ learner_id: z.string().uuid(), size: z.number().int().min(3).max(30).optional() }).parse(d),
+    z.object({ learner_id: z.string().uuid(), size: z.number().int().min(3).max(40).optional() }).parse(d),
   )
   .handler(async ({ data, context }): Promise<SessionCard[]> => {
     const { supabase } = context;
-    const size = data.size ?? 12;
+    const size = data.size ?? 20;
     const t = today();
     const genSeq = await nextContentGenSeq(supabase, data.learner_id);
     const freshnessSalt = `${t}#fc#gen${genSeq}#${Math.random().toString(36).slice(2, 8)}`;
@@ -745,6 +801,7 @@ export const buildFlashcardDeck = createServerFn({ method: "POST" })
           knownHeartWords,
           freshnessSalt,
           variant: "flashcards",
+          count: targetWordCount,
         });
         const words: string[] = (res.words ?? []).slice(0, targetWordCount);
         wordCards = words.map((w) => ({
