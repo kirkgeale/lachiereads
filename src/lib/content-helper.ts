@@ -30,6 +30,7 @@ interface GenArgs {
   variant?: string;
   interests?: string | null;
   parentObservations?: string[];
+  count?: number | null;
 }
 
 function makeCacheKey(a: GenArgs): string {
@@ -43,8 +44,9 @@ function makeCacheKey(a: GenArgs): string {
   const v = a.variant ?? "";
   const i = (a.interests ?? "").trim().toLowerCase();
   const p = (a.parentObservations ?? []).slice(0, 3).join("|");
+  const n = a.count ?? "";
   // Prefix learner_id so two learners never share a cache row.
-  return `L=${a.learner_id}::${a.type}::${gs}::${hs}::t=${t}::m=${m}::s=${s}::c=${c}::f=${f}::v=${v}::i=${i}::p=${p}`;
+  return `L=${a.learner_id}::${a.type}::${gs}::${hs}::t=${t}::m=${m}::s=${s}::c=${c}::f=${f}::v=${v}::i=${i}::p=${p}::n=${n}`;
 }
 
 function fallbackWordList(allowedGraphemes: string[], known: string[]): string[] {
