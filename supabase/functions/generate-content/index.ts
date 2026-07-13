@@ -93,11 +93,20 @@ function buildPrompt(r: Req): string {
   }
   const common = "\n" + parts.join("\n") + "\nRULE: every letter of every word must be part of one allowed grapheme or the word must be in the heart-word list.\n";
 
+  const clampCount = (n: number | null | undefined, def: number) => {
+    if (typeof n !== "number" || !Number.isFinite(n)) return def;
+    return Math.max(4, Math.min(16, Math.round(n)));
+  };
+
   switch (r.type) {
-    case "word_list":
-      return `Produce 8 short decodable English words for practice, ordered easiest to hardest.${common}Return JSON: {"words": ["...", "..."]}`;
-    case "game_words":
-      return `Produce 8 short decodable English words suitable for a quick tap-the-word game.${common}Return JSON: {"words": ["...", "..."]}`;
+    case "word_list": {
+      const count = clampCount(r.count, 8);
+      return `Produce ${count} short decodable English words for practice, ordered easiest to hardest.${common}Return JSON: {"words": ["...", ... ${count} items]}`;
+    }
+    case "game_words": {
+      const count = clampCount(r.count, 8);
+      return `Produce ${count} short decodable English words suitable for a quick tap-the-word game.${common}Return JSON: {"words": ["...", ... ${count} items]}`;
+    }
     case "pseudowords":
       return `Produce 6 short pseudowords (nonsense but pronounceable) for decoding practice.${common}Return JSON: {"words": ["...", "..."]}`;
     case "sentence":
@@ -116,6 +125,13 @@ Focus rule:
 - "parent_intro" is 2-3 short sentences the PARENT reads/says to the child before starting — introduces the concept warmly, models the sound if relevant, mentions how it will look in words.
 - "examples" are 2-4 mouth-friendly example words featuring the focus (must be decodable with allowed graphemes).
 
+DIFFICULTY LADDER within this bundle (MUST be respected):
+- "guided_words" (2-3 words) are the EASIEST target-featuring items — use ONLY the target grapheme plus already-secure/simple sounds. Fully supported confidence-builders. MUST be easier than blend_words.
+- "blend_words" (6 words) are next, easy→harder, target-featuring.
+- "practice_words" (10 words) mix target with general review.
+- "challenge_item" is ONE word that is strictly HARDER / LESS FAMILIAR than every other word in this bundle. It must apply the target in a less-drilled way (e.g. combine target with another already-taught but less-drilled pattern), NOT appear in focus.examples/guided_words/blend_words/practice_words, and must still be fully decodable from allowed graphemes. "Harder" means less familiar, NEVER undecodable. Provide a short "note" (one phrase) on what makes it a bit harder.
+- "recap_item" is a single short word or 2-word phrase featuring the target grapheme, DIFFERENT from every other word used elsewhere in this bundle (focus.examples, guided_words, blend_words, practice_words, challenge_item, sentence, story). It is used near the end for a no-support recap check.
+
 Now produce every list, keeping to the non-negotiable decodability rules.${common}Return STRICT JSON only:
 {
   "focus": {
@@ -124,10 +140,13 @@ Now produce every list, keeping to the non-negotiable decodability rules.${commo
     "parent_intro": "2-3 short sentences the parent reads to the child",
     "examples": ["word1","word2","word3"]
   },
-  "blend_words": ["5 short target-featuring words easy→harder"],
-  "practice_words": ["8 decodable words, mix of target and general practice"],
+  "guided_words": ["2-3 easiest target-featuring words, fully supported"],
+  "blend_words": ["6 short target-featuring words easy→harder"],
+  "practice_words": ["10 decodable words, mix of target and general practice"],
+  "challenge_item": { "word": "one harder word", "note": "one short phrase on what makes it a bit harder" },
   "sentence": "ONE short natural decodable sentence (4-7 words)",
   "story": "3-5 sentence calm decodable mini-story",
+  "recap_item": "single short word or 2-word phrase featuring the target, unique in this bundle",
   "flashcard_decodable": ["8 short decodable words for quick flashcard drilling"]
 }`;
     }
