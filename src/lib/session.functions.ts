@@ -106,10 +106,20 @@ function stageIntro(stage: SessionStage, sound?: string | null): StageIntro | un
           ? `Model the sound "${sound}" once, mouth clear. Then invite them to try.`
           : "Model the sound once, mouth clear. Then invite them to try.",
       };
+    case "guided":
+      return {
+        title: "Try it together",
+        guidance: "Support them fully — say it with them first, then let them lead the second time.",
+      };
     case "blend":
       return { title: "Blend ladder", guidance: "Sound out each letter, then blend. Slow → smooth." };
     case "practice":
       return { title: "Word reading", guidance: "Let them try first. Only prompt if truly stuck." };
+    case "challenge":
+      return {
+        title: "Your turn — a trickier one",
+        guidance: "Let them try WITHOUT help first. This one's a bit harder on purpose — that's OK, it's meant to stretch a little.",
+      };
     case "sentence":
       return { title: "Sentence", guidance: "Point under each word. Read together if needed, then them alone." };
     case "story":
@@ -121,6 +131,11 @@ function stageIntro(stage: SessionStage, sound?: string | null): StageIntro | un
       };
     case "game":
       return { title: "Quick game", guidance: "Fast recall — no pressure, just play." };
+    case "recap":
+      return {
+        title: "One more time",
+        guidance: "No hints this time — see if it's stuck. Whatever happens, this just tells us what to practise next.",
+      };
     case "wrapup":
       return { title: "Wrap-up", guidance: "Celebrate one specific thing they did well today." };
   }
