@@ -226,6 +226,11 @@ function SessionScreen() {
           </div>
         ) : current.stage === "target" ? (
           <LessonCard card={current} onOutcome={onOutcome} />
+        ) : current.stage === "write" ? (
+          <WriteCard
+            card={current}
+            onDone={() => setIdx((i) => Math.min(cards.length - 1, i + 1))}
+          />
         ) : (
           <>
             <ItemCard card={current} stageLabel={stageBreak ? STAGE_LABELS[stageBreak] : undefined} />
