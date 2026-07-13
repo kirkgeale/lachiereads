@@ -9,12 +9,15 @@ export type SessionStage =
   | "intro"
   | "warmup"
   | "target"
+  | "guided"
   | "blend"
   | "practice"
+  | "challenge"
   | "sentence"
   | "story"
   | "interference"
   | "game"
+  | "recap"
   | "wrapup";
 
 export interface Gpc {
