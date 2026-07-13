@@ -801,6 +801,7 @@ export const buildFlashcardDeck = createServerFn({ method: "POST" })
           knownHeartWords,
           freshnessSalt,
           variant: "flashcards",
+          count: targetWordCount,
         });
         const words: string[] = (res.words ?? []).slice(0, targetWordCount);
         wordCards = words.map((w) => ({
