@@ -26,7 +26,7 @@ function FlashcardsScreen() {
 
   const deckQ = useQuery({
     queryKey: ["flashcards", learnerId],
-    queryFn: () => build({ data: { learner_id: learnerId } }),
+    queryFn: () => build({ data: { learner_id: learnerId, size: 20 } }),
     refetchOnMount: false,
     refetchOnWindowFocus: false,
     staleTime: Infinity,
