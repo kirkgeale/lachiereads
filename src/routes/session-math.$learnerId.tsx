@@ -117,13 +117,23 @@ function MathSessionScreen() {
           <div className="text-xs uppercase tracking-widest text-muted-foreground mb-1">First things first</div>
           <h1 className="text-2xl md:text-3xl font-display text-primary mb-2">Let's find {name}'s maths starting point</h1>
           <p className="text-sm text-muted-foreground mb-6">Tell us what they already know so lessons pitch at the right level.</p>
-          <button
-            onClick={() => navigate({ to: "/parent/math-setup/$learnerId", params: { learnerId } })}
-            className="rounded-2xl bg-primary text-primary-foreground p-5 text-left hover:bg-primary/90 w-full"
-          >
-            <div className="font-display text-lg">Quick maths set-up</div>
-            <div className="text-sm opacity-80">Tick what they already know — 1 minute.</div>
-          </button>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <button
+              onClick={() => navigate({ to: "/parent/math-assessment/$learnerId", params: { learnerId } })}
+              className="rounded-2xl bg-primary text-primary-foreground p-5 text-left hover:bg-primary/90"
+            >
+              <div className="font-display text-lg">Full maths assessment</div>
+              <div className="text-sm opacity-80">Parent-led adaptive probes — ~10 minutes.</div>
+            </button>
+            <button
+              onClick={() => navigate({ to: "/parent/math-setup/$learnerId", params: { learnerId } })}
+              className="rounded-2xl bg-accent text-accent-foreground p-5 text-left hover:bg-accent/90"
+            >
+              <div className="font-display text-lg">Quick maths set-up</div>
+              <div className="text-sm opacity-80">Tick what they already know — 1 minute.</div>
+            </button>
+          </div>
+
         </div>
       </div>
     );

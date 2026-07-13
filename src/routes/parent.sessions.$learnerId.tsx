@@ -28,8 +28,11 @@ function SessionHistory() {
           {sessions
             .slice()
             .reverse()
-            .map((s) => (
+            .map((s: any) => (
               <li key={s.id} className="py-3 flex items-center gap-4">
+                <span className={`text-[10px] uppercase tracking-widest px-2 py-1 rounded-full ${s.subject === "math" ? "bg-accent/20 text-accent-foreground" : "bg-primary/10 text-primary"}`}>
+                  {s.subject === "math" ? "Maths" : "Reading"}
+                </span>
                 <div className="flex-1">
                   <div className="text-sm font-medium">{new Date(s.date).toLocaleString()}</div>
                   {s.parent_notes && (
@@ -45,6 +48,7 @@ function SessionHistory() {
                 </div>
               </li>
             ))}
+
         </ul>
       )}
     </div>
