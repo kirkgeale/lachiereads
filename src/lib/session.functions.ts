@@ -111,6 +111,12 @@ function stageIntro(stage: SessionStage, sound?: string | null): StageIntro | un
         title: "Try it together",
         guidance: "Support them fully — say it with them first, then let them lead the second time.",
       };
+    case "write":
+      return {
+        title: "Now write it",
+        guidance:
+          "Writing locks the sound in. Model the strokes once in the air, then let them write it a few times on paper — say the sound each time they write.",
+      };
     case "blend":
       return { title: "Blend ladder", guidance: "Sound out each letter, then blend. Slow → smooth." };
     case "practice":
