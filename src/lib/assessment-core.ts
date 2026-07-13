@@ -319,14 +319,16 @@ export function buildAssessmentProbes(
 
   const usedGraphemes = new Set<string>();
   const probes: AssessmentProbe[] = [];
-  const takeFrom = (band: AssessmentGraphemeEntry[], n: number) => {
-    if (n <= 0) return;
+  // Returns the number of probes actually placed.
+  const takeFrom = (band: AssessmentGraphemeEntry[], n: number): number => {
+    if (n <= 0) return 0;
+    let placed = 0;
     for (const g of seededShuffle(band, rand)) {
-      if (n <= 0) break;
+      if (placed >= n) break;
       if (usedGraphemes.has(g.grapheme)) continue;
-      usedGraphemes.add(g.grapheme);
       const strand = strandOf(g);
       if (strand === "letter_sounds") {
+        usedGraphemes.add(g.grapheme);
         probes.push(make("letter_sounds", {
           kind: "grapheme_sound",
           prompt: g.grapheme,
@@ -334,9 +336,11 @@ export function buildAssessmentProbes(
           difficulty: 1,
           notes: `listen for ${g.sound_label}`,
         }));
+        placed++;
       } else {
         const word = pickFromPool(g, rand);
         if (!word) continue;
+        usedGraphemes.add(g.grapheme);
         probes.push(make(strand, {
           kind: kindOf(g),
           prompt: word,
@@ -344,33 +348,62 @@ export function buildAssessmentProbes(
           difficulty: difficultyOf(g),
           notes: `listen for ${g.sound_label} in '${word}'`,
         }));
+        placed++;
       }
-      n--;
     }
+    return placed;
   };
 
-  // Weighted sampling: heaviest at frontier, some secure confirmation,
-  // some just-beyond probes to find the ceiling, minimal far-below/far-beyond.
-  takeFrom(banded.frontier, 14);
-  takeFrom(banded.just_beyond, 8);
-  takeFrom(banded.secure_below, 3);
-  takeFrom(banded.far_beyond, 3);
-  takeFrom(banded.far_below_secure, 1);
-  // Bootstrap safety: if learner is brand-new (nothing active/secure), sweep
-  // phases 1-2 so the first-ever assessment still has substance.
-  if (probes.length < 8) {
-    takeFrom(catalog.filter((g) => g.phase <= 2), 16 - probes.length);
+  // Target-total + weighted reallocation. Ensures a consistently comprehensive
+  // assessment regardless of how narrow the current frontier happens to be.
+  const TARGET_GRAPHEME_PROBES = 30;
+  const bandOrder: (keyof typeof banded)[] = [
+    "frontier", "just_beyond", "secure_below", "far_beyond", "far_below_secure",
+  ];
+  const bandWeights: Record<string, number> = {
+    frontier: 0.40, just_beyond: 0.25, secure_below: 0.20, far_beyond: 0.10, far_below_secure: 0.05,
+  };
+  let shortfall = 0;
+  for (const key of bandOrder) {
+    const want = Math.max(1, Math.round(TARGET_GRAPHEME_PROBES * (bandWeights[key] ?? 0)));
+    const got = takeFrom(banded[key], want);
+    shortfall += Math.max(0, want - got);
+  }
+  // Second pass: redistribute total shortfall in priority order across bands
+  // that still have unused items.
+  for (const key of bandOrder) {
+    if (shortfall <= 0) break;
+    const got = takeFrom(banded[key], shortfall);
+    shortfall -= got;
+  }
+  // Last resort: sweep any remaining catalog item.
+  if (shortfall > 0) {
+    takeFrom(catalog, shortfall);
   }
 
-  // --- Heart words: frontier-weighted with variety ---
+  // Bootstrap safety: if learner is brand-new (nothing active/secure), sweep
+  // phases 1-2 so the first-ever assessment still has substance.
+  if (probes.length < 16) {
+    const bootstrapNeeded = 16 - probes.length;
+    const bootstrapPool = catalog.filter((g) => g.phase <= 2);
+    // Only apply if the frontier is empty (brand-new learner); otherwise the
+    // shortfall reallocation above has already done everything possible.
+    if (!banded.frontier.length && !banded.secure_below.length) {
+      takeFrom(bootstrapPool, bootstrapNeeded);
+    }
+  }
+
+  // --- Heart words: target + reallocation, same shape as graphemes ---
   const hwEntries = learner.heart_word_entries ?? (learner.all_heart_words ?? []).map((w) => ({ word: w, status: "not_started" as MasteryStatus }));
   const hwFrontier = hwEntries.filter((h) => h.status === "learning" || h.status === "practising");
   const hwSecure = hwEntries.filter((h) => h.status === "secure");
   const hwNotStarted = hwEntries.filter((h) => h.status === "not_started");
   const heartWordProbes: AssessmentProbe[] = [];
-  const pickHw = (pool: AssessmentHeartWordEntry[], n: number) => {
+  const pickHw = (pool: AssessmentHeartWordEntry[], n: number): number => {
+    if (n <= 0) return 0;
+    let placed = 0;
     for (const h of seededShuffle(pool, rand)) {
-      if (n <= 0) break;
+      if (placed >= n) break;
       if (heartWordProbes.find((p) => p.target_heart_word === h.word)) continue;
       heartWordProbes.push(make("heart_words", {
         kind: "heart_word",
@@ -379,12 +412,26 @@ export function buildAssessmentProbes(
         difficulty: 2,
         notes: "word recognition",
       }));
-      n--;
+      placed++;
     }
+    return placed;
   };
-  pickHw(hwFrontier, 3);
-  pickHw(hwNotStarted, 2);
-  pickHw(hwSecure, 1);
+  const TARGET_HEART_WORDS = 8;
+  const hwBands: [AssessmentHeartWordEntry[], number][] = [
+    [hwFrontier, 0.50], [hwNotStarted, 0.30], [hwSecure, 0.20],
+  ];
+  let hwShort = 0;
+  for (const [pool, weight] of hwBands) {
+    const want = Math.max(1, Math.round(TARGET_HEART_WORDS * weight));
+    const got = pickHw(pool, want);
+    hwShort += Math.max(0, want - got);
+  }
+  for (const [pool] of hwBands) {
+    if (hwShort <= 0) break;
+    const got = pickHw(pool, hwShort);
+    hwShort -= got;
+  }
+
 
   // --- Pseudowords: rotate through bank via seed for targets the learner reached ---
   const pseudoProbes: AssessmentProbe[] = [];
