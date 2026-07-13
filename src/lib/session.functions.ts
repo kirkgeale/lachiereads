@@ -408,9 +408,19 @@ export const startSession = createServerFn({ method: "POST" })
       });
     }
 
+    // --- Guided: 2-3 EASIEST target-featuring words, fully supported ---
+    const guidedCards: SessionCard[] = [];
+    if (Array.isArray(bundle?.guided_words)) {
+      for (const w of bundle.guided_words.slice(0, 3)) {
+        if (typeof w === "string" && w.trim()) {
+          guidedCards.push({ key: `gd-${w}`, item_type: "decodable_word", item_ref: w, display: w, stage: "guided" });
+        }
+      }
+    }
+
     const blendCards: SessionCard[] = [];
     if (currentPhase >= 2 && Array.isArray(bundle?.blend_words)) {
-      for (const w of bundle.blend_words.slice(0, 5)) {
+      for (const w of bundle.blend_words.slice(0, 6)) {
         blendCards.push({ key: `b-${w}`, item_type: "decodable_word", item_ref: w, display: w, stage: "blend" });
       }
     }
@@ -418,9 +428,23 @@ export const startSession = createServerFn({ method: "POST" })
     // --- Word practice ---
     const practiceCards: SessionCard[] = [];
     if (Array.isArray(bundle?.practice_words)) {
-      for (const w of bundle.practice_words.slice(0, 8)) {
+      for (const w of bundle.practice_words.slice(0, 10)) {
         practiceCards.push({ key: `p-w-${w}`, item_type: "decodable_word", item_ref: w, display: w, stage: "practice" });
       }
+    }
+
+    // --- Challenge: ONE harder, less-familiar target-featuring word ---
+    const challengeCards: SessionCard[] = [];
+    const ch = bundle?.challenge_item;
+    if (ch && typeof ch === "object" && typeof ch.word === "string" && ch.word.trim()) {
+      challengeCards.push({
+        key: `ch-${ch.word}`,
+        item_type: "decodable_word",
+        item_ref: ch.word,
+        display: ch.word,
+        stage: "challenge",
+        meta: { kind: "challenge", note: typeof ch.note === "string" ? ch.note : "" },
+      });
     }
 
     // --- Sentence (phase >= 3) ---
@@ -475,6 +499,20 @@ export const startSession = createServerFn({ method: "POST" })
       meta: { kind: "quick_game" },
     }));
 
+    // --- Recap: single delayed no-support check of the target ---
+    const recapCards: SessionCard[] = [];
+    const recapWord = typeof bundle?.recap_item === "string" ? bundle.recap_item.trim() : "";
+    if (recapWord) {
+      recapCards.push({
+        key: `rc-${recapWord}`,
+        item_type: "decodable_word",
+        item_ref: recapWord,
+        display: recapWord,
+        stage: "recap",
+        meta: { kind: "recap" },
+      });
+    }
+
     // --- Wrap-up ---
     const wrapup: SessionCard[] = [
       { key: "wrap", item_type: "gpc", item_ref: "", display: "", stage: "wrapup" },
@@ -485,12 +523,15 @@ export const startSession = createServerFn({ method: "POST" })
       ...introCards,
       ...warmup,
       ...targetCards,
+      ...guidedCards,
       ...blendCards,
       ...practiceCards,
+      ...challengeCards,
       ...sentenceCards,
       ...storyCards,
       ...interferenceCards,
       ...gameCards,
+      ...recapCards,
       ...wrapup,
     ];
     let prevStage: SessionStage | null = null;
