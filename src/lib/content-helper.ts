@@ -139,8 +139,23 @@ export async function generateContentInternal(a: GenArgs): Promise<any> {
     content.blend_words = filterList(content.blend_words);
     content.practice_words = filterList(content.practice_words);
     content.flashcard_decodable = filterList(content.flashcard_decodable);
+    content.guided_words = filterList(content.guided_words);
     if (Array.isArray(content.focus?.examples)) {
       content.focus.examples = filterList(content.focus.examples);
+    }
+    // challenge_item / recap_item: drop if undecodable
+    const oneWordOk = (w: any) =>
+      typeof w === "string" && w.trim() &&
+      validateContent(extractWords(w), a.allowedGraphemes, a.knownHeartWords).ok;
+    if (content.challenge_item && typeof content.challenge_item === "object") {
+      if (!oneWordOk(content.challenge_item.word)) {
+        console.warn("[lesson_bundle] dropping challenge_item");
+        content.challenge_item = null;
+      }
+    }
+    if (!oneWordOk(content.recap_item)) {
+      console.warn("[lesson_bundle] dropping recap_item");
+      content.recap_item = null;
     }
 
     const sentenceOk = (s: any) => typeof s === "string" && s.trim() &&
