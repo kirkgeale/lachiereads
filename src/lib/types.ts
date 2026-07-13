@@ -10,6 +10,7 @@ export type SessionStage =
   | "warmup"
   | "target"
   | "guided"
+  | "write"
   | "blend"
   | "practice"
   | "challenge"
