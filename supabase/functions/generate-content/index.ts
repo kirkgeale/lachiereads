@@ -31,6 +31,7 @@ interface Req {
   current_phase?: number | null;       // synthetic-phonics phase, 1..5
   interests?: string | null;           // free-form child interests, e.g. "dinosaurs, football, space"
   parent_observations?: string[];      // recent parent notes from prior sessions (soft context)
+  count?: number | null;               // optional dynamic size for word_list / game_words (default 8, clamped 4-16)
 }
 
 const SYSTEM = `You write extremely short, calm, wholesome English reading practice for a ~7-year-old native English speaker who is being formally schooled in Swedish and is now learning to DECODE English via synthetic phonics.
