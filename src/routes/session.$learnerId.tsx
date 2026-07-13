@@ -362,3 +362,103 @@ function LessonCard({ card, onOutcome }: { card: SessionCard; onOutcome: (o: Out
     </div>
   );
 }
+
+// Writing reinforcement — non-graded. Big model of the grapheme/word for the
+// child to copy on paper, plus a parent-facing script. Advances on "Done".
+function WriteCard({ card, onDone }: { card: SessionCard; onDone: () => void }) {
+  const writeKind = (card.meta?.write_kind as string | undefined) ?? "grapheme";
+  const instruction =
+    (card.meta?.instruction as string | undefined) ??
+    "Write it a few times, saying the sound as you go.";
+  const isGrapheme = writeKind === "grapheme";
+  const text = card.display;
+  const upper = text.toUpperCase();
+  const lower = text.toLowerCase();
+  const showPair = isGrapheme && upper !== lower;
+
+  const stageTitle =
+    writeKind === "grapheme"
+      ? "Now write it"
+      : writeKind === "recap"
+        ? "Write it — no peeking"
+        : "Write the word";
+
+  return (
+    <div className="w-full max-w-2xl mx-auto flex flex-col items-center gap-6">
+      <div className="w-full text-center">
+        <div className="text-xs uppercase tracking-widest text-accent">Writing · reinforcement</div>
+        <div className="mt-1 text-lg font-display text-primary">{stageTitle}</div>
+        <div className="mt-1 text-sm text-muted-foreground italic max-w-md mx-auto">
+          {card.stage_intro?.guidance ??
+            "Writing locks the sound in. Say it out loud each time they write."}
+        </div>
+      </div>
+
+      {/* Big traceable model */}
+      <div className="w-full flex flex-col items-center justify-center gap-3 rounded-[2rem] bg-card border border-border/60 shadow-sm px-6 py-10">
+        <div
+          className={
+            "font-display font-semibold text-primary/90 leading-none tracking-wide " +
+            (isGrapheme ? "text-[10rem] md:text-[13rem]" : "text-7xl md:text-8xl")
+          }
+          style={{
+            WebkitTextStroke: "2px hsl(var(--primary))",
+            color: "transparent",
+          } as React.CSSProperties}
+        >
+          {isGrapheme ? upper : text.toLowerCase()}
+        </div>
+        {showPair && (
+          <div
+            className="text-6xl md:text-7xl font-display tracking-wide"
+            style={{
+              WebkitTextStroke: "2px hsl(var(--muted-foreground))",
+              color: "transparent",
+            } as React.CSSProperties}
+          >
+            {lower}
+          </div>
+        )}
+        {isGrapheme && card.sound_label && (
+          <div className="mt-2 text-base text-muted-foreground">
+            says <b className="text-primary">{card.sound_label}</b>
+          </div>
+        )}
+      </div>
+
+      {/* Parent script */}
+      <div className="w-full rounded-2xl bg-accent/10 border border-accent/30 px-5 py-4">
+        <div className="text-xs uppercase tracking-widest text-accent mb-1">For the parent</div>
+        <p className="text-sm text-foreground/90">{instruction}</p>
+        <ul className="mt-2 text-sm text-foreground/80 list-disc pl-5 space-y-1">
+          {isGrapheme ? (
+            <>
+              <li>Trace the shape in the air together first — big arm movements.</li>
+              <li>Then paper: 3 copies, saying the sound each time.</li>
+              <li>Praise the shape they liked best.</li>
+            </>
+          ) : writeKind === "recap" ? (
+            <>
+              <li>Say the word once. Then hide the model.</li>
+              <li>Let them write it from memory, sounding out as they go.</li>
+              <li>Reveal and check together — celebrate close attempts.</li>
+            </>
+          ) : (
+            <>
+              <li>Say the word slowly, stretching each sound.</li>
+              <li>They write one letter per sound.</li>
+              <li>Re-read together at the end.</li>
+            </>
+          )}
+        </ul>
+      </div>
+
+      <button
+        onClick={onDone}
+        className="rounded-full bg-primary text-primary-foreground px-8 py-3.5 font-medium hover:bg-primary/90"
+      >
+        Done writing
+      </button>
+    </div>
+  );
+}
