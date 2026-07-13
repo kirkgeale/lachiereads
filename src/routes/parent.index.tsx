@@ -54,18 +54,44 @@ function ParentHome() {
 
   return (
     <div className="space-y-6">
-      <Link
-        to="/parent/assessment/$learnerId"
-        params={{ learnerId: activeId }}
-        className="flex items-center gap-4 rounded-3xl bg-primary text-primary-foreground p-5 shadow-sm hover:opacity-95 transition"
-      >
-        <ClipboardCheck className="w-8 h-8 flex-shrink-0" />
-        <div className="flex-1">
-          <div className="font-display text-lg">Run reading assessment</div>
-          <div className="text-sm opacity-90">AI-guided probes to pinpoint level and update practice plan.</div>
-        </div>
-        <span className="text-2xl">→</span>
-      </Link>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <Link
+          to="/parent/assessment/$learnerId"
+          params={{ learnerId: activeId }}
+          className="flex items-center gap-4 rounded-3xl bg-primary text-primary-foreground p-5 shadow-sm hover:opacity-95 transition"
+        >
+          <ClipboardCheck className="w-8 h-8 flex-shrink-0" />
+          <div className="flex-1">
+            <div className="font-display text-lg">Reading assessment</div>
+            <div className="text-sm opacity-90">AI-guided probes to pinpoint level.</div>
+          </div>
+          <span className="text-2xl">→</span>
+        </Link>
+        <Link
+          to="/parent/math-assessment/$learnerId"
+          params={{ learnerId: activeId }}
+          className="flex items-center gap-4 rounded-3xl bg-accent text-accent-foreground p-5 shadow-sm hover:opacity-95 transition"
+        >
+          <Sparkles className="w-8 h-8 flex-shrink-0" />
+          <div className="flex-1">
+            <div className="font-display text-lg">Maths assessment</div>
+            <div className="text-sm opacity-90">Parent-led, calm, untimed probes.</div>
+          </div>
+          <span className="text-2xl">→</span>
+        </Link>
+      </div>
+
+      <div className="flex gap-2 text-sm">
+        <Link to="/parent/math-progress/$learnerId" params={{ learnerId: activeId }}
+          className="rounded-full bg-secondary text-secondary-foreground px-4 py-2 hover:bg-secondary/80">
+          Maths progress
+        </Link>
+        <Link to="/parent/phonics/$learnerId" params={{ learnerId: activeId }}
+          className="rounded-full bg-secondary text-secondary-foreground px-4 py-2 hover:bg-secondary/80">
+          Reading progress
+        </Link>
+      </div>
+
 
       <div className="grid grid-cols-3 gap-3">
         <StatCard label="Secure sounds" value={secure} tone="primary" />
