@@ -709,11 +709,11 @@ export const saveSessionEvents = createServerFn({ method: "POST" })
 export const buildFlashcardDeck = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: { learner_id: string; size?: number }) =>
-    z.object({ learner_id: z.string().uuid(), size: z.number().int().min(3).max(30).optional() }).parse(d),
+    z.object({ learner_id: z.string().uuid(), size: z.number().int().min(3).max(40).optional() }).parse(d),
   )
   .handler(async ({ data, context }): Promise<SessionCard[]> => {
     const { supabase } = context;
-    const size = data.size ?? 12;
+    const size = data.size ?? 20;
     const t = today();
     const genSeq = await nextContentGenSeq(supabase, data.learner_id);
     const freshnessSalt = `${t}#fc#gen${genSeq}#${Math.random().toString(36).slice(2, 8)}`;
