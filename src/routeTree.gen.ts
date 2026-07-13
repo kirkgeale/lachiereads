@@ -26,6 +26,7 @@ import { Route as ParentMathAssessmentLearnerIdRouteImport } from './routes/pare
 import { Route as ParentInterferenceLearnerIdRouteImport } from './routes/parent.interference.$learnerId'
 import { Route as ParentBenchmarkLearnerIdRouteImport } from './routes/parent.benchmark.$learnerId'
 import { Route as ParentAssessmentLearnerIdRouteImport } from './routes/parent.assessment.$learnerId'
+import { Route as ParentMathReportLearnerIdAssessmentIdRouteImport } from './routes/parent.math-report.$learnerId.$assessmentId'
 
 const ParentRoute = ParentRouteImport.update({
   id: '/parent',
@@ -119,6 +120,12 @@ const ParentAssessmentLearnerIdRoute =
     path: '/assessment/$learnerId',
     getParentRoute: () => ParentRoute,
   } as any)
+const ParentMathReportLearnerIdAssessmentIdRoute =
+  ParentMathReportLearnerIdAssessmentIdRouteImport.update({
+    id: '/math-report/$learnerId/$assessmentId',
+    path: '/math-report/$learnerId/$assessmentId',
+    getParentRoute: () => ParentRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -138,6 +145,7 @@ export interface FileRoutesByFullPath {
   '/parent/phonics/$learnerId': typeof ParentPhonicsLearnerIdRoute
   '/parent/quick-setup/$learnerId': typeof ParentQuickSetupLearnerIdRoute
   '/parent/sessions/$learnerId': typeof ParentSessionsLearnerIdRoute
+  '/parent/math-report/$learnerId/$assessmentId': typeof ParentMathReportLearnerIdAssessmentIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -156,6 +164,7 @@ export interface FileRoutesByTo {
   '/parent/phonics/$learnerId': typeof ParentPhonicsLearnerIdRoute
   '/parent/quick-setup/$learnerId': typeof ParentQuickSetupLearnerIdRoute
   '/parent/sessions/$learnerId': typeof ParentSessionsLearnerIdRoute
+  '/parent/math-report/$learnerId/$assessmentId': typeof ParentMathReportLearnerIdAssessmentIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -176,6 +185,7 @@ export interface FileRoutesById {
   '/parent/phonics/$learnerId': typeof ParentPhonicsLearnerIdRoute
   '/parent/quick-setup/$learnerId': typeof ParentQuickSetupLearnerIdRoute
   '/parent/sessions/$learnerId': typeof ParentSessionsLearnerIdRoute
+  '/parent/math-report/$learnerId/$assessmentId': typeof ParentMathReportLearnerIdAssessmentIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -197,6 +207,7 @@ export interface FileRouteTypes {
     | '/parent/phonics/$learnerId'
     | '/parent/quick-setup/$learnerId'
     | '/parent/sessions/$learnerId'
+    | '/parent/math-report/$learnerId/$assessmentId'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -215,6 +226,7 @@ export interface FileRouteTypes {
     | '/parent/phonics/$learnerId'
     | '/parent/quick-setup/$learnerId'
     | '/parent/sessions/$learnerId'
+    | '/parent/math-report/$learnerId/$assessmentId'
   id:
     | '__root__'
     | '/'
@@ -234,6 +246,7 @@ export interface FileRouteTypes {
     | '/parent/phonics/$learnerId'
     | '/parent/quick-setup/$learnerId'
     | '/parent/sessions/$learnerId'
+    | '/parent/math-report/$learnerId/$assessmentId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -366,6 +379,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ParentAssessmentLearnerIdRouteImport
       parentRoute: typeof ParentRoute
     }
+    '/parent/math-report/$learnerId/$assessmentId': {
+      id: '/parent/math-report/$learnerId/$assessmentId'
+      path: '/math-report/$learnerId/$assessmentId'
+      fullPath: '/parent/math-report/$learnerId/$assessmentId'
+      preLoaderRoute: typeof ParentMathReportLearnerIdAssessmentIdRouteImport
+      parentRoute: typeof ParentRoute
+    }
   }
 }
 
@@ -381,6 +401,7 @@ interface ParentRouteChildren {
   ParentPhonicsLearnerIdRoute: typeof ParentPhonicsLearnerIdRoute
   ParentQuickSetupLearnerIdRoute: typeof ParentQuickSetupLearnerIdRoute
   ParentSessionsLearnerIdRoute: typeof ParentSessionsLearnerIdRoute
+  ParentMathReportLearnerIdAssessmentIdRoute: typeof ParentMathReportLearnerIdAssessmentIdRoute
 }
 
 const ParentRouteChildren: ParentRouteChildren = {
@@ -395,6 +416,8 @@ const ParentRouteChildren: ParentRouteChildren = {
   ParentPhonicsLearnerIdRoute: ParentPhonicsLearnerIdRoute,
   ParentQuickSetupLearnerIdRoute: ParentQuickSetupLearnerIdRoute,
   ParentSessionsLearnerIdRoute: ParentSessionsLearnerIdRoute,
+  ParentMathReportLearnerIdAssessmentIdRoute:
+    ParentMathReportLearnerIdAssessmentIdRoute,
 }
 
 const ParentRouteWithChildren =
