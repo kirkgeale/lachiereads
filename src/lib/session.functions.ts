@@ -111,6 +111,12 @@ function stageIntro(stage: SessionStage, sound?: string | null): StageIntro | un
         title: "Try it together",
         guidance: "Support them fully — say it with them first, then let them lead the second time.",
       };
+    case "write":
+      return {
+        title: "Now write it",
+        guidance:
+          "Writing locks the sound in. Model the strokes once in the air, then let them write it a few times on paper — say the sound each time they write.",
+      };
     case "blend":
       return { title: "Blend ladder", guidance: "Sound out each letter, then blend. Slow → smooth." };
     case "practice":
@@ -518,20 +524,84 @@ export const startSession = createServerFn({ method: "POST" })
       { key: "wrap", item_type: "gpc", item_ref: "", display: "", stage: "wrapup" },
     ];
 
+    // --- Write cards: hands-on reinforcement, non-graded ---
+    // 1) Write the new grapheme after the guided read (letter formation).
+    // 2) Write one short practice word (best-practice: apply the sound in writing).
+    // 3) Write the recap word/phrase at the end (retrieve + produce).
+    const writeGraphemeCards: SessionCard[] = [];
+    if (targetGpc) {
+      writeGraphemeCards.push({
+        key: `wr-g-${targetGpc.id}`,
+        item_type: "gpc",
+        item_ref: targetGpc.id,
+        display: targetGpc.grapheme,
+        sound_label: targetGpc.sound_label,
+        example_word: targetGpc.example_word,
+        stage: "write",
+        meta: {
+          kind: "write",
+          write_kind: "grapheme",
+          instruction: "Write it 3 times, saying the sound each time.",
+        },
+      });
+    }
+
+    // Pick a short, easy word to write from guided (fallback: first practice word).
+    const writeWordSource =
+      (Array.isArray(bundle?.guided_words) ? bundle.guided_words : [])
+        .concat(Array.isArray(bundle?.practice_words) ? bundle.practice_words : [])
+        .find((w: unknown) => typeof w === "string" && (w as string).trim().length > 0 && (w as string).length <= 5) as
+        | string
+        | undefined;
+    const writeWordCards: SessionCard[] = [];
+    if (writeWordSource) {
+      writeWordCards.push({
+        key: `wr-w-${writeWordSource}`,
+        item_type: "decodable_word",
+        item_ref: writeWordSource,
+        display: writeWordSource,
+        stage: "write",
+        meta: {
+          kind: "write",
+          write_kind: "word",
+          instruction: "Sound it out as you write each letter.",
+        },
+      });
+    }
+
+    const writeRecapCards: SessionCard[] = [];
+    if (recapWord) {
+      writeRecapCards.push({
+        key: `wr-rc-${recapWord}`,
+        item_type: "decodable_word",
+        item_ref: recapWord,
+        display: recapWord,
+        stage: "write",
+        meta: {
+          kind: "write",
+          write_kind: "recap",
+          instruction: "One more — write it on your own, no peeking.",
+        },
+      });
+    }
+
     // Assemble in order, attach stage_intro to the first card of each stage
     const ordered: SessionCard[] = [
       ...introCards,
       ...warmup,
       ...targetCards,
       ...guidedCards,
+      ...writeGraphemeCards,
       ...blendCards,
       ...practiceCards,
+      ...writeWordCards,
       ...challengeCards,
       ...sentenceCards,
       ...storyCards,
       ...interferenceCards,
       ...gameCards,
       ...recapCards,
+      ...writeRecapCards,
       ...wrapup,
     ];
     let prevStage: SessionStage | null = null;
