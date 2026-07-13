@@ -5,7 +5,7 @@ import { listLearners } from "@/lib/learners.functions";
 import { getParentSettings } from "@/lib/parent.functions";
 import { getProgressTimeline } from "@/lib/dashboard.functions";
 import { LineChart as LC, Line, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid, BarChart, Bar, Legend } from "recharts";
-import { ClipboardCheck } from "lucide-react";
+import { ClipboardCheck, Sparkles } from "lucide-react";
 
 
 export const Route = createFileRoute("/parent/")({
