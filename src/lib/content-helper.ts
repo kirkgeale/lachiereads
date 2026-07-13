@@ -96,6 +96,7 @@ export async function generateContentInternal(a: GenArgs): Promise<any> {
         challenges: a.challenges ?? [],
         interests: a.interests ?? null,
         parent_observations: a.parentObservations ?? [],
+        count: a.count ?? null,
       },
     });
     if (error) throw error;
