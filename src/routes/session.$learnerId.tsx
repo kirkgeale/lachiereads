@@ -23,12 +23,16 @@ const STAGE_LABELS: Record<string, string> = {
   intro: "Today's focus",
   warmup: "Warm-up",
   target: "New sound",
+  guided: "Try it together",
+  write: "Now write it",
   blend: "Blend ladder",
   practice: "Word reading",
+  challenge: "Your turn",
   sentence: "Sentence",
   story: "Mini story",
   interference: "Sound check",
   game: "Quick game",
+  recap: "One more time",
   wrapup: "Wrap-up",
 };
 
