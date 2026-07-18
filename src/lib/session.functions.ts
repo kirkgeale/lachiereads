@@ -121,6 +121,11 @@ function stageIntro(stage: SessionStage, sound?: string | null): StageIntro | un
       return { title: "Blend ladder", guidance: "Sound out each letter, then blend. Slow → smooth." };
     case "practice":
       return { title: "Word reading", guidance: "Let them try first. Only prompt if truly stuck." };
+    case "repetition":
+      return {
+        title: "Read again",
+        guidance: "Same target sound, fresh words. Repetition is how it sticks — keep it warm and quick.",
+      };
     case "challenge":
       return {
         title: "Your turn — a trickier one",
