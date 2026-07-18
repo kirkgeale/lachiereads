@@ -128,9 +128,10 @@ Focus rule:
 DIFFICULTY LADDER within this bundle (MUST be respected):
 - "guided_words" (2-3 words) are the EASIEST target-featuring items — use ONLY the target grapheme plus already-secure/simple sounds. Fully supported confidence-builders. MUST be easier than blend_words.
 - "blend_words" (6 words) are next, easy→harder, target-featuring.
-- "practice_words" (10 words) mix target with general review.
-- "challenge_item" is ONE word that is strictly HARDER / LESS FAMILIAR than every other word in this bundle. It must apply the target in a less-drilled way (e.g. combine target with another already-taught but less-drilled pattern), NOT appear in focus.examples/guided_words/blend_words/practice_words, and must still be fully decodable from allowed graphemes. "Harder" means less familiar, NEVER undecodable. Provide a short "note" (one phrase) on what makes it a bit harder.
-- "recap_item" is a single short word or 2-word phrase featuring the target grapheme, DIFFERENT from every other word used elsewhere in this bundle (focus.examples, guided_words, blend_words, practice_words, challenge_item, sentence, story). It is used near the end for a no-support recap check.
+- "practice_words" (14 words) mix target with general review — provide a wide variety of DIFFERENT words (vary initial letter, ending, and theme). Do not repeat words across guided_words / blend_words.
+- "repetition_words" (5 words) are for spaced within-session review a few minutes after practice. Pick 5 target-featuring words that DIFFER from guided_words/blend_words/practice_words/challenge_item. Same target sound, fresh contexts — this is how the sound cements.
+- "challenge_item" is ONE word that is strictly HARDER / LESS FAMILIAR than every other word in this bundle. It must apply the target in a less-drilled way (e.g. combine target with another already-taught but less-drilled pattern), NOT appear in focus.examples/guided_words/blend_words/practice_words/repetition_words, and must still be fully decodable from allowed graphemes. "Harder" means less familiar, NEVER undecodable. Provide a short "note" (one phrase) on what makes it a bit harder.
+- "recap_item" is a single short word or 2-word phrase featuring the target grapheme, DIFFERENT from every other word used elsewhere in this bundle (focus.examples, guided_words, blend_words, practice_words, repetition_words, challenge_item, sentence, story). It is used near the end for a no-support recap check.
 
 Now produce every list, keeping to the non-negotiable decodability rules.${common}Return STRICT JSON only:
 {
@@ -142,7 +143,8 @@ Now produce every list, keeping to the non-negotiable decodability rules.${commo
   },
   "guided_words": ["2-3 easiest target-featuring words, fully supported"],
   "blend_words": ["6 short target-featuring words easy→harder"],
-  "practice_words": ["10 decodable words, mix of target and general practice"],
+  "practice_words": ["14 decodable words, mix of target and general practice, all distinct"],
+  "repetition_words": ["5 target-featuring words for delayed within-session review, distinct from other lists"],
   "challenge_item": { "word": "one harder word", "note": "one short phrase on what makes it a bit harder" },
   "sentence": "ONE short natural decodable sentence (4-7 words)",
   "story": "3-5 sentence calm decodable mini-story",
@@ -209,7 +211,7 @@ Deno.serve(async (req: Request) => {
       },
       body: JSON.stringify({
         model: CLAUDE_MODEL,
-        max_tokens: body.type === "lesson_bundle" ? 2000 : 700,
+        max_tokens: body.type === "lesson_bundle" ? 2800 : 700,
         system: SYSTEM,
         messages: [{ role: "user", content: prompt }],
       }),

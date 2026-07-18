@@ -121,6 +121,11 @@ function stageIntro(stage: SessionStage, sound?: string | null): StageIntro | un
       return { title: "Blend ladder", guidance: "Sound out each letter, then blend. Slow → smooth." };
     case "practice":
       return { title: "Word reading", guidance: "Let them try first. Only prompt if truly stuck." };
+    case "repetition":
+      return {
+        title: "Read again",
+        guidance: "Same target sound, fresh words. Repetition is how it sticks — keep it warm and quick.",
+      };
     case "challenge":
       return {
         title: "Your turn — a trickier one",
@@ -434,9 +439,33 @@ export const startSession = createServerFn({ method: "POST" })
     // --- Word practice ---
     const practiceCards: SessionCard[] = [];
     if (Array.isArray(bundle?.practice_words)) {
-      for (const w of bundle.practice_words.slice(0, 10)) {
+      for (const w of bundle.practice_words.slice(0, 14)) {
         practiceCards.push({ key: `p-w-${w}`, item_type: "decodable_word", item_ref: w, display: w, stage: "practice" });
       }
+    }
+
+    // --- Repetition: fresh target-featuring words for spaced within-session review ---
+    // Repetition is how new sounds stick. Prefer AI-provided repetition_words;
+    // fall back to re-reading a subset of blend/practice words if missing.
+    const repetitionCards: SessionCard[] = [];
+    const repetitionSource: string[] = Array.isArray(bundle?.repetition_words)
+      ? (bundle.repetition_words as unknown[]).filter((w): w is string => typeof w === "string" && !!w.trim())
+      : [];
+    const repetitionWords = repetitionSource.length
+      ? repetitionSource.slice(0, 6)
+      : [
+          ...(Array.isArray(bundle?.blend_words) ? bundle.blend_words.slice(-2) : []),
+          ...(Array.isArray(bundle?.practice_words) ? bundle.practice_words.slice(0, 3) : []),
+        ].slice(0, 5);
+    for (const w of repetitionWords) {
+      repetitionCards.push({
+        key: `rp-${w}`,
+        item_type: "decodable_word",
+        item_ref: w,
+        display: w,
+        stage: "repetition",
+        meta: { kind: "repetition" },
+      });
     }
 
     // --- Challenge: ONE harder, less-familiar target-featuring word ---
@@ -595,6 +624,7 @@ export const startSession = createServerFn({ method: "POST" })
       ...blendCards,
       ...practiceCards,
       ...writeWordCards,
+      ...repetitionCards,
       ...challengeCards,
       ...sentenceCards,
       ...storyCards,

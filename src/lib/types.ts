@@ -13,6 +13,7 @@ export type SessionStage =
   | "write"
   | "blend"
   | "practice"
+  | "repetition"
   | "challenge"
   | "sentence"
   | "story"
