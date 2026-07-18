@@ -1,11 +1,18 @@
 // Shared next-target selection used by BOTH startSession and finalizeAssessment.
 // Keep the query and promotion behaviour identical so the two paths cannot drift.
 //
-// Rule (must mirror startSession):
-//   1. First `learning` GPC by gpcs.order_index — if any, that's the target.
-//   2. Otherwise pick the first `not_started` GPC by gpcs.order_index,
-//      promote it to `learning`, and return it.
-//   3. Otherwise null (nothing to teach).
+// Focus rule: never introduce a NEW concept while the learner already has
+// several in-development. A learner can only truly work on a small handful of
+// new sounds at once — piling on more just spreads attention thin.
+//
+//   1. If any GPC is `learning`, target the first one by order_index.
+//   2. Otherwise, if there are 3+ `practising` GPCs (seen but not secure),
+//      drill the shakiest of those (lowest leitner_box, then oldest last_seen)
+//      instead of opening a fresh concept.
+//   3. Otherwise promote the first `not_started` GPC to `learning`.
+//   4. Otherwise null.
+
+const IN_DEV_BACKLOG_THRESHOLD = 3;
 
 export interface NextTarget {
   id: string;
@@ -33,6 +40,35 @@ export async function selectNextTarget(supabase: any, learner_id: string): Promi
       sound_label: (learning as any).gpcs.sound_label,
       example_word: (learning as any).gpcs.example_word,
     };
+  }
+
+  // No `learning` items — if there's a backlog of practising items, drill the
+  // shakiest one instead of opening a fresh concept.
+  const { data: practisingRows, error: pe } = await supabase
+    .from("learner_gpc_status")
+    .select("gpc_id, leitner_box, last_seen, gpcs(id, grapheme, sound_label, example_word, order_index)")
+    .eq("learner_id", learner_id)
+    .eq("status", "practising")
+    .limit(50);
+  if (pe) throw new Error(pe.message);
+  const practising = practisingRows ?? [];
+
+  if (practising.length >= IN_DEV_BACKLOG_THRESHOLD) {
+    const shakiest = [...practising].sort((a: any, b: any) => {
+      const boxDiff = ((a.leitner_box ?? 0) as number) - ((b.leitner_box ?? 0) as number);
+      if (boxDiff !== 0) return boxDiff;
+      const aSeen = a.last_seen ? new Date(a.last_seen).getTime() : 0;
+      const bSeen = b.last_seen ? new Date(b.last_seen).getTime() : 0;
+      return aSeen - bSeen;
+    })[0];
+    if (shakiest) {
+      return {
+        id: shakiest.gpc_id,
+        grapheme: (shakiest as any).gpcs.grapheme,
+        sound_label: (shakiest as any).gpcs.sound_label,
+        example_word: (shakiest as any).gpcs.example_word,
+      };
+    }
   }
 
   const { data: nextRows, error: nextError } = await supabase
