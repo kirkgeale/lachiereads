@@ -27,6 +27,7 @@ const STAGE_LABELS: Record<string, string> = {
   write: "Now write it",
   blend: "Blend ladder",
   practice: "Word reading",
+  repetition: "Read again",
   challenge: "Your turn",
   sentence: "Sentence",
   story: "Mini story",
