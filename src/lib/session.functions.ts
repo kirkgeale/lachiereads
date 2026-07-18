@@ -624,6 +624,7 @@ export const startSession = createServerFn({ method: "POST" })
       ...blendCards,
       ...practiceCards,
       ...writeWordCards,
+      ...repetitionCards,
       ...challengeCards,
       ...sentenceCards,
       ...storyCards,
